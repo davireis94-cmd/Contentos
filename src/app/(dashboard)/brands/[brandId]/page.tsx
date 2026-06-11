@@ -7,6 +7,7 @@ import { IdentityTab } from "./tabs/identity-tab";
 import { VoiceTab } from "./tabs/voice-tab";
 import { ExamplesTab } from "./tabs/examples-tab";
 import { ReferencesTab } from "./tabs/references-tab";
+import { DocumentsTab } from "./tabs/documents-tab";
 
 export default async function BrandDetailPage({
   params,
@@ -17,21 +18,27 @@ export default async function BrandDetailPage({
   const { supabase, workspace } = await getSessionContext();
   if (!workspace) return null;
 
-  const [{ data: brand }, { data: voice }, { data: references }, { data: examples }] =
-    await Promise.all([
-      supabase.from("brands").select("*").eq("id", brandId).maybeSingle(),
-      supabase.from("brand_voice").select("*").eq("brand_id", brandId).maybeSingle(),
-      supabase
-        .from("brand_references")
-        .select("*")
-        .eq("brand_id", brandId)
-        .order("created_at"),
-      supabase
-        .from("brand_examples")
-        .select("id, content, created_at")
-        .eq("brand_id", brandId)
-        .order("created_at", { ascending: false }),
-    ]);
+  const [
+    { data: brand },
+    { data: voice },
+    { data: references },
+    { data: examples },
+    { data: documents },
+  ] = await Promise.all([
+    supabase.from("brands").select("*").eq("id", brandId).maybeSingle(),
+    supabase.from("brand_voice").select("*").eq("brand_id", brandId).maybeSingle(),
+    supabase.from("brand_references").select("*").eq("brand_id", brandId).order("created_at"),
+    supabase
+      .from("brand_examples")
+      .select("id, content, created_at")
+      .eq("brand_id", brandId)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("brand_documents")
+      .select("id, name, file_type, file_size_bytes, extracted_content, created_at")
+      .eq("brand_id", brandId)
+      .order("created_at", { ascending: false }),
+  ]);
 
   if (!brand) notFound();
 
@@ -71,6 +78,9 @@ export default async function BrandDetailPage({
             <TabsTrigger value="references">
               Referências ({references?.length ?? 0})
             </TabsTrigger>
+            <TabsTrigger value="documents">
+              Documentos ({documents?.length ?? 0})
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="identity" className="mt-4">
@@ -84,6 +94,13 @@ export default async function BrandDetailPage({
           </TabsContent>
           <TabsContent value="references" className="mt-4">
             <ReferencesTab brandId={brand.id} references={references ?? []} />
+          </TabsContent>
+          <TabsContent value="documents" className="mt-4">
+            <DocumentsTab
+              brandId={brand.id}
+              workspaceId={workspace.id}
+              initialDocuments={documents ?? []}
+            />
           </TabsContent>
         </Tabs>
       </div>

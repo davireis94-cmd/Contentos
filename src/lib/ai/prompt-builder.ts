@@ -1,5 +1,17 @@
 import type { GenerationInput } from "@/lib/validations/generation";
 
+interface DocumentContext {
+  resumo?: string;
+  publico_alvo?: string;
+  tom_de_voz?: string;
+  valores?: string[];
+  diferenciais?: string[];
+  pilares?: string[];
+  frases_chave?: string[];
+  palavras_evitar?: string[];
+  posicionamento?: string;
+}
+
 interface BrandContext {
   name: string;
   description: string | null;
@@ -11,6 +23,7 @@ interface BrandContext {
     forbidden_words: string[];
   } | null;
   examples: { content: string }[];
+  documents?: DocumentContext[];
 }
 
 const OBJECTIVE_LABELS: Record<string, string> = {
@@ -54,6 +67,25 @@ export function buildSystemPrompt(brand: BrandContext, input: GenerationInput): 
           .join("\n\n")
       : "Nenhum exemplo cadastrado ainda.";
 
+  const docsSection =
+    brand.documents && brand.documents.length > 0
+      ? brand.documents
+          .map((doc) => {
+            const parts: string[] = [];
+            if (doc.resumo) parts.push(`Resumo: ${doc.resumo}`);
+            if (doc.publico_alvo) parts.push(`Público-alvo: ${doc.publico_alvo}`);
+            if (doc.tom_de_voz) parts.push(`Tom de voz: ${doc.tom_de_voz}`);
+            if (doc.posicionamento) parts.push(`Posicionamento: ${doc.posicionamento}`);
+            if (doc.valores?.length) parts.push(`Valores: ${doc.valores.join(", ")}`);
+            if (doc.diferenciais?.length) parts.push(`Diferenciais: ${doc.diferenciais.join(", ")}`);
+            if (doc.pilares?.length) parts.push(`Pilares de conteúdo: ${doc.pilares.join(", ")}`);
+            if (doc.frases_chave?.length) parts.push(`Frases características: ${doc.frases_chave.join(" | ")}`);
+            if (doc.palavras_evitar?.length) parts.push(`Evitar: ${doc.palavras_evitar.join(", ")}`);
+            return parts.join("\n");
+          })
+          .join("\n\n")
+      : null;
+
   return `Você é um ghostwriter especialista em conteúdo para redes sociais.
 Sua missão: criar conteúdo autêntico que soa exatamente como a voz da marca abaixo.
 
@@ -69,7 +101,7 @@ Palavras PROIBIDAS (NUNCA use): ${forbidden}
 
 ## EXEMPLOS DE POSTS REAIS DESTA MARCA
 ${examplesSection}
-
+${docsSection ? `\n## IDENTIDADE DA MARCA (extraído de documentos oficiais)\n${docsSection}` : ""}
 ## FORMATO DO CONTEÚDO
 ${FORMAT_INSTRUCTIONS[input.format] ?? input.format}
 

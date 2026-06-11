@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       };
 
       try {
-        // ── Auth ─────────────────────────────────────────────────────────
+        // Auth
         const supabase = createServerClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
           return;
         }
 
-        // ── Input validation ──────────────────────────────────────────────
+        // Input validation
         const body = await request.json();
         const parseResult = generationInputSchema.safeParse(body);
         if (!parseResult.success) {
@@ -58,39 +58,45 @@ export async function POST(request: NextRequest) {
 
         send("progress", { message: "Buscando contexto da marca..." });
 
-        // ── Fetch brand context ───────────────────────────────────────────
-        const { data: brand } = await supabase
-          .from("brands")
-          .select(
-            `id, name, description,
-             brand_voice ( tone, target_audience, content_pillars, characteristic_phrases, forbidden_words ),
-             brand_examples ( content )`
-          )
-          .eq("id", input.brandId)
-          .single();
+        // Fetch brand context + documents in parallel
+        const [{ data: brand }, { data: brandRow }] = await Promise.all([
+          supabase
+            .from("brands")
+            .select(
+              `id, name, description,
+               brand_voice ( tone, target_audience, content_pillars, characteristic_phrases, forbidden_words ),
+               brand_examples ( content ),
+               brand_documents ( extracted_content )`
+            )
+            .eq("id", input.brandId)
+            .single(),
+          supabase
+            .from("brands")
+            .select("workspace_id")
+            .eq("id", input.brandId)
+            .single(),
+        ]);
 
-        if (!brand) {
+        if (!brand || !brandRow) {
           send("error", { message: "Marca não encontrada." });
-          controller.close();
-          return;
-        }
-
-        // ── Workspace id ──────────────────────────────────────────────────
-        const { data: brandRow } = await supabase
-          .from("brands")
-          .select("workspace_id")
-          .eq("id", input.brandId)
-          .single();
-
-        if (!brandRow) {
-          send("error", { message: "Workspace não encontrado." });
           controller.close();
           return;
         }
 
         send("progress", { message: "Montando briefing criativo..." });
 
-        // ── Build prompts ─────────────────────────────────────────────────
+        // Parse extracted document contexts
+        const rawDocs = Array.isArray((brand as Record<string, unknown>).brand_documents)
+          ? (brand as Record<string, unknown>).brand_documents as { extracted_content: string | null }[]
+          : [];
+        const documents = rawDocs
+          .map((d) => {
+            if (!d.extracted_content) return null;
+            try { return JSON.parse(d.extracted_content); } catch { return null; }
+          })
+          .filter(Boolean);
+
+        // Build prompts
         const brandContext = {
           name: brand.name,
           description: brand.description,
@@ -103,9 +109,8 @@ export async function POST(request: NextRequest) {
                 characteristic_phrases: string[];
                 forbidden_words: string[];
               } | null),
-          examples: Array.isArray(brand.brand_examples)
-            ? brand.brand_examples
-            : [],
+          examples: Array.isArray(brand.brand_examples) ? brand.brand_examples : [],
+          documents,
         };
 
         const systemPrompt = buildSystemPrompt(brandContext, input);
@@ -113,16 +118,16 @@ export async function POST(request: NextRequest) {
 
         send("progress", { message: "Gerando conteúdo com IA..." });
 
-        // ── Claude streaming ──────────────────────────────────────────────
+        // Guard: ANTHROPIC_API_KEY
         if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY.startsWith("sk-ant-COLE")) {
           send("error", {
-            message:
-              "Configure a variável ANTHROPIC_API_KEY no arquivo .env.local para usar o gerador.",
+            message: "Configure a variável ANTHROPIC_API_KEY no arquivo .env.local para usar o gerador.",
           });
           controller.close();
           return;
         }
 
+        // Claude streaming
         const claudeStream = anthropic.messages.stream({
           model: "claude-sonnet-4-6",
           max_tokens: 4096,
@@ -131,34 +136,27 @@ export async function POST(request: NextRequest) {
         });
 
         let fullText = "";
-
         for await (const event of claudeStream) {
-          if (
-            event.type === "content_block_delta" &&
-            event.delta.type === "text_delta"
-          ) {
+          if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
             fullText += event.delta.text;
           }
         }
 
         send("progress", { message: "Validando e salvando conteúdo..." });
 
-        // ── Parse & validate output ───────────────────────────────────────
+        // Parse & validate output
         let parsed;
         try {
           const jsonMatch = fullText.match(/\{[\s\S]*\}/);
           if (!jsonMatch) throw new Error("Sem JSON na resposta");
           parsed = generationOutputSchema.parse(JSON.parse(jsonMatch[0]));
         } catch {
-          send("error", {
-            message:
-              "A IA retornou um formato inesperado. Tente novamente.",
-          });
+          send("error", { message: "A IA retornou um formato inesperado. Tente novamente." });
           controller.close();
           return;
         }
 
-        // ── Save to DB ────────────────────────────────────────────────────
+        // Save to DB
         const { data: piece, error: insertError } = await supabase
           .from("content_pieces")
           .insert({
@@ -180,7 +178,7 @@ export async function POST(request: NextRequest) {
           return;
         }
 
-        // ── Log usage ─────────────────────────────────────────────────────
+        // Log usage
         await supabase.from("usage_logs").insert({
           workspace_id: brandRow.workspace_id,
           user_id: user.id,
