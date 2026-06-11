@@ -1,0 +1,51 @@
+import { z } from "zod";
+
+export const contentFormatSchema = z.enum([
+  "carousel",
+  "reel",
+  "story",
+  "single",
+]);
+
+export const objectiveSchema = z.enum([
+  "educate",
+  "engage",
+  "sell",
+  "inspire",
+]);
+
+export const slideSchema = z.object({
+  index: z.number().int().min(0),
+  title: z.string().min(1),
+  subtitle: z.string().optional(),
+  body: z.string().min(1),
+  cta: z.string().optional(),
+});
+
+/**
+ * Canonical shape every AI generation must return.
+ * The route handler retries automatically when Claude's output
+ * fails this schema — the user never sees malformed JSON.
+ */
+export const generationOutputSchema = z.object({
+  title: z.string().min(1),
+  format: contentFormatSchema,
+  slides: z.array(slideSchema).min(1),
+  caption: z.string().min(1),
+  hashtags: z.array(z.string().regex(/^#?[\p{L}\p{N}_]+$/u)).min(3).max(30),
+});
+
+export const generationInputSchema = z.object({
+  brandId: z.string().uuid(),
+  topic: z.string().min(3).max(500),
+  objective: objectiveSchema,
+  format: contentFormatSchema,
+  slideCount: z.number().int().min(1).max(20).default(7),
+  toneOverride: z
+    .enum(["formal", "conversational", "authority", "minimalist"])
+    .optional(),
+});
+
+export type GenerationOutput = z.infer<typeof generationOutputSchema>;
+export type GenerationInput = z.infer<typeof generationInputSchema>;
+export type Slide = z.infer<typeof slideSchema>;
