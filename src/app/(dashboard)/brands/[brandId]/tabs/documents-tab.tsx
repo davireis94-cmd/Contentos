@@ -112,7 +112,7 @@ export function DocumentsTab({ brandId, workspaceId, initialDocuments }: Documen
         <input
           ref={inputRef}
           type="file"
-          accept="application/pdf,.pdf"
+          accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg,.webp"
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -126,7 +126,7 @@ export function DocumentsTab({ brandId, workspaceId, initialDocuments }: Documen
           <div className="rounded-lg border border-dashed p-8 text-center">
             <FileText className="mx-auto mb-2 size-7 text-muted-foreground/30" />
             <p className="text-sm text-muted-foreground">Nenhum documento ainda</p>
-            <p className="mt-1 text-xs text-muted-foreground">PDF · máx. 10MB</p>
+            <p className="mt-1 text-xs text-muted-foreground">PDF, DOCX, TXT, PNG, JPG · máx. 20MB</p>
           </div>
         )}
 
