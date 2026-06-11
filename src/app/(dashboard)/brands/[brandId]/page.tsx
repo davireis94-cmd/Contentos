@@ -27,7 +27,7 @@ export default async function BrandDetailPage({
   ] = await Promise.all([
     supabase.from("brands").select("*").eq("id", brandId).maybeSingle(),
     supabase.from("brand_voice").select("*").eq("brand_id", brandId).maybeSingle(),
-    supabase.from("brand_references").select("*").eq("brand_id", brandId).order("created_at"),
+    supabase.from("brand_references").select("id, name, handle, platforms, notes, ai_analysis").eq("brand_id", brandId).order("created_at"),
     supabase
       .from("brand_examples")
       .select("id, content, created_at")
@@ -93,7 +93,11 @@ export default async function BrandDetailPage({
             <ExamplesTab brandId={brand.id} examples={examples ?? []} />
           </TabsContent>
           <TabsContent value="references" className="mt-4">
-            <ReferencesTab brandId={brand.id} references={references ?? []} />
+            <ReferencesTab
+              brandId={brand.id}
+              references={references ?? []}
+              voice={voice ?? null}
+            />
           </TabsContent>
           <TabsContent value="documents" className="mt-4">
             <DocumentsTab
