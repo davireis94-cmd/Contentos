@@ -45,7 +45,7 @@ export async function signup(formData: FormData) {
   });
 
   if (error) {
-    authError("/signup", "Não foi possível criar a conta. Tente novamente.");
+    authError("/signup", error.message);
   }
 
   redirect("/signup?sent=1");
