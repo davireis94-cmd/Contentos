@@ -53,22 +53,37 @@ export async function POST(request: NextRequest) {
   const phrases = voice?.characteristic_phrases?.join(", ") || "";
   const forbidden = voice?.forbidden_words?.join(", ") || "";
 
-  const systemPrompt = `Você é um ghostwriter especialista refinando um conteúdo para redes sociais.
+  const systemPrompt = `Você é um ghostwriter especialista refinando conteúdo para redes sociais.
+
+REGRA ABSOLUTA: Responda SEMPRE e SOMENTE com o JSON completo atualizado — nunca com texto conversacional, perguntas, explicações ou markdown. Mesmo que o pedido seja ambíguo, faça a melhor interpretação possível e retorne o JSON.
 
 MARCA: ${brand?.name ?? ""}
 ${brand?.description ? `Descrição: ${brand.description}` : ""}
 ${voice?.target_audience ? `Público-alvo: ${voice.target_audience}` : ""}
 ${voice?.tone ? `Tom de voz: ${voice.tone}` : ""}
 ${pillars ? `Pilares: ${pillars}` : ""}
-${phrases ? `Frases características (use quando encaixar): ${phrases}` : ""}
-${forbidden ? `Palavras PROIBIDAS (nunca use): ${forbidden}` : ""}
+${phrases ? `Frases características: ${phrases}` : ""}
+${forbidden ? `Palavras PROIBIDAS: ${forbidden}` : ""}
 
-CONTEÚDO ATUAL:
+CONTEÚDO ATUAL (modifique conforme o pedido do usuário):
 ${currentContent}
 
-Aplique as alterações pedidas pelo usuário mantendo a voz da marca.
-Retorne APENAS o JSON completo atualizado — mesma estrutura: title, format, slides (array com index, title, subtitle?, body, cta?), caption, hashtags.
-Sem markdown, sem explicações fora do JSON.`;
+INSTRUÇÕES:
+- Aplique exatamente o que o usuário pediu, mantendo a voz da marca
+- Se o usuário mencionar "referência", "post de referência" ou algo similar que você não tem acesso, interprete o pedido pelo contexto e faça a modificação mais coerente possível
+- Mantenha todos os campos [Layout: tipo] e notas de produção nos slides que não foram modificados
+- Retorne o JSON completo — não apenas as partes modificadas
+
+FORMATO DE SAÍDA (retorne EXATAMENTE esta estrutura, sem markdown, sem texto antes ou depois):
+{"title":"...","format":"...","platform":"...","productionTool":"","slides":[{"index":0,"title":"...","subtitle":"...","body":"...[Layout: tipo]","cta":"..."}],"caption":"...","hashtags":["#..."]}`;
+
+  // Extract JSON from model response, handling both raw and markdown-wrapped JSON
+  function extractJson(text: string): string | null {
+    const codeBlock = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    if (codeBlock) return codeBlock[1];
+    const raw = text.match(/\{[\s\S]*\}/);
+    return raw ? raw[0] : null;
+  }
 
   try {
     const messages: { role: "user" | "assistant"; content: string }[] = [
@@ -84,11 +99,16 @@ Sem markdown, sem explicações fora do JSON.`;
     });
 
     const text = response.content[0].type === "text" ? response.content[0].text : "";
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return NextResponse.json({ error: "Resposta inesperada da IA." }, { status: 500 });
-
-    const rawObj = JSON.parse(jsonMatch[0]);
+    const jsonStr = extractJson(text);
+    if (!jsonStr) {
+      console.error("[refine] No JSON in response. Raw text:", text.slice(0, 500));
+      return NextResponse.json({ error: "A IA não retornou o conteúdo no formato esperado. Tente reformular o pedido." }, { status: 500 });
+    }
+    const rawObj = JSON.parse(jsonStr);
     rawObj.format = piece.format;
+    // Ensure required schema fields that refine might omit
+    if (!rawObj.platform) rawObj.platform = "instagram";
+    if (rawObj.productionTool === undefined) rawObj.productionTool = "";
 
     if (Array.isArray(rawObj.hashtags)) {
       rawObj.hashtags = rawObj.hashtags
@@ -115,7 +135,12 @@ Sem markdown, sem explicações fora do JSON.`;
 
     return NextResponse.json({ output: parsed });
   } catch (err) {
+    console.error("[refine] Error:", err);
     const msg = err instanceof Error ? err.message : "Erro desconhecido";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    // Zod validation errors are verbose — show a friendlier message
+    const isZod = msg.includes("ZodError") || msg.includes("Required") || msg.includes("invalid_type");
+    return NextResponse.json({
+      error: isZod ? "Formato inválido retornado pela IA. Tente novamente." : msg,
+    }, { status: 500 });
   }
 }
