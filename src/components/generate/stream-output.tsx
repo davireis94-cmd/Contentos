@@ -38,9 +38,8 @@ interface Props {
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
-// Strip [Tool: production note] from end of body for display only
 function stripNote(body: string): string {
-  return body.replace(/\n?\[[^\]:]+:[^\]]*\]\s*$/, "").trim();
+  return body.replace(/\n?\[[^\]:]+:[^\]]*\]/g, "").trim();
 }
 
 function buildFullCopy(output: GenerationOutput): string {

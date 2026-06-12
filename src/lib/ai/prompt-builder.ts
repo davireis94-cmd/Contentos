@@ -185,6 +185,37 @@ No campo "body" de cada slide, inclua ao final uma nota de produção entre colc
 Exemplos de boas notas: dimensões, cores, fontes, efeitos de edição, transições, tempo de cena, tipo de corte. Seja específico e direto.`
     : "";
 
+  const layoutSection = input.format === "carousel" ? `
+## LAYOUT VISUAL DOS SLIDES (obrigatório)
+Ao final do campo "body" de CADA slide, inclua obrigatoriamente:
+[Layout: tipo]
+
+Tipos disponíveis:
+- dark-photo: fundo escuro com foto de background (use SEMPRE no slide 0/hook e em slides de virada dramática)
+- dark: fundo escuro sólido (problema, contexto, afirmações fortes, dados)
+- light: fundo creme claro (informação, conclusão, insight, análise)
+- feature-list: fundo creme com lista de 3 features com ícone (use quando o slide descreve "o que faz" com múltiplos benefícios)
+- step-list: fundo creme com passos numerados (use quando o slide descreve um processo em etapas sequenciais)
+- gradient: gradiente vinho escuro (SOMENTE no último slide, sempre)
+
+Regras fixas:
+- Slide índice 0: SEMPRE dark-photo
+- Último slide: SEMPRE gradient, com CTA no campo "cta"
+
+Formato obrigatório do body para feature-list (uma feature por linha, antes da nota):
+🗂️ | Título do item | Descrição curta do item
+🤝 | Título do item | Descrição curta do item
+🔍 | Título do item | Descrição curta do item
+[Layout: feature-list]
+
+Formato obrigatório do body para step-list (um passo por linha, antes da nota):
+01 | Título do passo | Descrição curta do passo
+02 | Título do passo | Descrição curta do passo
+03 | Título do passo | Descrição curta do passo
+[Layout: step-list]
+
+Para dark, dark-photo, light e gradient: body é texto normal + nota ao final.` : "";
+
   return `Você é um ghostwriter especialista em conteúdo para redes sociais.
 Sua missão: criar conteúdo autêntico que soa exatamente como a voz da marca abaixo.
 
@@ -203,7 +234,7 @@ ${examplesSection}
 ${docsSection ? `\n## IDENTIDADE DA MARCA (extraído de documentos oficiais)\n${docsSection}\n` : ""}${refsSection ? `\n## POSTS DE REFERÊNCIA (inspire-se na estrutura e cadência, crie conteúdo 100% original)\n${refsSection}\n` : ""}${importedRefSection ? `\n${importedRefSection}\n` : ""}${externalRefSection ? `\n${externalRefSection}\n` : ""}
 ## PLATAFORMA: ${input.platform.toUpperCase()}
 ${platformSpecs}
-${toolSection}
+${toolSection}${layoutSection}
 ## FORMATO DO CONTEÚDO
 ${FORMAT_INSTRUCTIONS[input.format] ?? input.format}
 
@@ -212,7 +243,7 @@ ${FORMAT_INSTRUCTIONS[input.format] ?? input.format}
 - Use as frases características quando natural
 - NUNCA use as palavras proibidas
 - Respeite as especificações técnicas da plataforma informada
-- O primeiro slide/parágrafo DEVE ser um gancho irresistível${refsSection ? "\n- Se há posts de referência, adapte a estrutura que funcionou bem, mas com conteúdo completamente novo" : ""}${importedRefSection ? "\n- Se há um post importado como referência, analise profundamente: tipo de gancho, ritmo, ângulo do tema, cadência dos parágrafos — recrie a LÓGICA com conteúdo 100% original na voz da marca" : ""}${externalRefSection ? "\n- Se há um post externo de referência, use a lógica narrativa, mas o conteúdo deve ser 100% original e na voz da marca" : ""}${input.productionTool ? `\n- Inclua notas de produção [${input.productionTool}: ...] em cada slide` : ""}
+- O primeiro slide/parágrafo DEVE ser um gancho irresistível${refsSection ? "\n- Se há posts de referência, adapte a estrutura que funcionou bem, mas com conteúdo completamente novo" : ""}${importedRefSection ? "\n- Se há um post importado como referência, analise profundamente: tipo de gancho, ritmo, ângulo do tema, cadência dos parágrafos — recrie a LÓGICA com conteúdo 100% original na voz da marca" : ""}${externalRefSection ? "\n- Se há um post externo de referência, use a lógica narrativa, mas o conteúdo deve ser 100% original e na voz da marca" : ""}${input.productionTool ? `\n- Inclua notas de produção [${input.productionTool}: ...] em cada slide` : ""}${input.format === "carousel" ? "\n- Inclua OBRIGATORIAMENTE [Layout: tipo] ao final do body de cada slide conforme as regras acima" : ""}
 
 ## FORMATO DE SAÍDA
 Retorne APENAS um objeto JSON válido, sem markdown, sem explicações, sem \`\`\`json.
@@ -227,7 +258,7 @@ Schema obrigatório:
       "index": 0,
       "title": "texto do título do slide",
       "subtitle": "subtítulo opcional",
-      "body": "corpo do texto${input.productionTool ? `\n[${input.productionTool}: nota de produção deste slide]` : ""}",
+      "body": "corpo do texto${input.format === "carousel" ? "\n[Layout: dark-photo]" : ""}${input.productionTool ? `\n[${input.productionTool}: nota de produção deste slide]` : ""}",
       "cta": "call to action opcional (só no último slide)"
     }
   ],

@@ -2,12 +2,11 @@
 
 import React, { useState, useRef, useEffect, useCallback, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, ClipboardCopy, Copy, Loader2, Pencil, Send, Wand2, X } from "lucide-react";
+import { ArrowLeft, Check, ClipboardCopy, Copy, Download, Loader2, Pencil, Send, Wand2, X } from "lucide-react";
 import { DeletePieceButton } from "@/components/content/delete-piece-button";
 
-// Strip [Tool: production note] from body for display — keep in clipboard copy
 function stripNote(body: string): string {
-  return body.replace(/\n?\[[^\]:]+:[^\]]*\]\s*$/, "").trim();
+  return body.replace(/\n?\[[^\]:]+:[^\]]*\]/g, "").trim();
 }
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -498,6 +497,14 @@ export function ContentDetail({
               Gerar variação deste post
             </Link>
           </Button>
+          {format === "carousel" && (
+            <Button asChild variant="outline" size="sm">
+              <a href={`/api/generate/carousel?pieceId=${pieceId}`} download>
+                <Download className="mr-1.5 size-3.5" />
+                Baixar Carrossel HTML
+              </a>
+            </Button>
+          )}
         </div>
         <DeletePieceButton pieceId={pieceId} variant="full" />
       </div>
