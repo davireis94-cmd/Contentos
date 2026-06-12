@@ -2,8 +2,9 @@
 
 import React, { useState, useRef, useEffect, useCallback, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, ClipboardCopy, Copy, Download, Loader2, Pencil, Send, Wand2, X } from "lucide-react";
+import { ArrowLeft, Check, ClipboardCopy, Copy, Loader2, Pencil, Send, Wand2, X } from "lucide-react";
 import { DeletePieceButton } from "@/components/content/delete-piece-button";
+import { CarouselStudio } from "@/components/content/carousel-studio";
 
 function stripNote(body: string): string {
   return body.replace(/\n?\[[^\]:]+:[^\]]*\]/g, "").trim();
@@ -482,6 +483,19 @@ export function ContentDetail({
         </div>
       </section>
 
+      {/* Carousel Studio — preview + editor for carousel format */}
+      {format === "carousel" && (
+        <section>
+          <CarouselStudio
+            slides={slides}
+            pieceId={pieceId}
+            onSlidesChange={(next) => {
+              setSlides(next);
+            }}
+          />
+        </section>
+      )}
+
       {/* Actions */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
         <div className="flex flex-wrap gap-2">
@@ -497,14 +511,6 @@ export function ContentDetail({
               Gerar variação deste post
             </Link>
           </Button>
-          {format === "carousel" && (
-            <Button asChild variant="outline" size="sm">
-              <a href={`/api/generate/carousel?pieceId=${pieceId}`} download>
-                <Download className="mr-1.5 size-3.5" />
-                Baixar Carrossel HTML
-              </a>
-            </Button>
-          )}
         </div>
         <DeletePieceButton pieceId={pieceId} variant="full" />
       </div>

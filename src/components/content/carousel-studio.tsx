@@ -1,0 +1,767 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  Download,
+  Loader2,
+  Pencil,
+  X,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import type { Slide } from "@/lib/validations/generation";
+import { updateSlides } from "@/app/(dashboard)/content/[pieceId]/actions";
+
+// ── Slide parsing helpers ──────────────────────────────────────────────────
+
+function getLayout(body: string): string {
+  const m = body.match(/\[Layout:\s*([a-z-]+)\]/i);
+  return m?.[1]?.toLowerCase() ?? "dark";
+}
+
+function cleanBody(body: string): string {
+  return body.replace(/\n?\[[^\]:]+:[^\]]*\]/gi, "").trim();
+}
+
+function parseFeatures(body: string) {
+  return body.split("\n").filter((l) => l.includes("|")).map((l) => {
+    const [icon = "", title = "", desc = ""] = l.split("|").map((p) => p.trim());
+    return { icon, title, desc };
+  }).filter((i) => i.title).slice(0, 4);
+}
+
+function parseSteps(body: string) {
+  return body.split("\n").filter((l) => l.includes("|")).map((l) => {
+    const [num = "01", title = "", desc = ""] = l.split("|").map((p) => p.trim());
+    return { num, title, desc };
+  }).filter((i) => i.title).slice(0, 4);
+}
+
+const LAYOUT_LABELS: Record<string, string> = {
+  "dark-photo": "Escuro c/ foto",
+  dark: "Escuro sólido",
+  light: "Claro",
+  "feature-list": "Lista de features",
+  "step-list": "Lista de passos",
+  gradient: "Gradiente (CTA)",
+};
+
+// ── Brand tokens ───────────────────────────────────────────────────────────
+
+const B = {
+  primary: "#6B1A2A",
+  light: "#9B3A4A",
+  dark: "#3D0F18",
+  darkBg: "#180E0C",
+  lightBg: "#FAF7F2",
+  lightBorder: "#EDE8E0",
+  gradient: "linear-gradient(165deg,#3D0F18 0%,#6B1A2A 50%,#9B3A4A 100%)",
+} as const;
+
+// ── Slide Visual Component ─────────────────────────────────────────────────
+
+function SlideVisual({
+  slide,
+  idx,
+  total,
+}: {
+  slide: Slide;
+  idx: number;
+  total: number;
+}) {
+  const body = slide.body ?? "";
+  const layout = getLayout(body);
+  const text = cleanBody(body);
+  const pct = ((idx + 1) / total) * 100;
+  const isDark = layout !== "light" && layout !== "feature-list" && layout !== "step-list";
+  const isLast = idx === total - 1;
+
+  const progressBar = (
+    <div
+      style={{
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: "10px 20px 14px",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        zIndex: 10,
+      }}
+    >
+      <div
+        style={{
+          flex: 1,
+          height: 2,
+          borderRadius: 1,
+          background: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            width: `${pct}%`,
+            height: "100%",
+            background: isDark ? "#fff" : B.primary,
+          }}
+        />
+      </div>
+      <span
+        style={{
+          fontSize: 9,
+          fontWeight: 500,
+          color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.3)",
+        }}
+      >
+        {idx + 1}/{total}
+      </span>
+    </div>
+  );
+
+  const swipeHint = !isLast && (
+    <div
+      style={{
+        position: "absolute",
+        right: 0,
+        top: 0,
+        bottom: 0,
+        width: 32,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: isDark
+          ? "linear-gradient(to right,transparent,rgba(255,255,255,0.05))"
+          : "linear-gradient(to right,transparent,rgba(0,0,0,0.04))",
+        zIndex: 9,
+      }}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+        <path
+          d="M9 6l6 6-6 6"
+          stroke={isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.2)"}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </div>
+  );
+
+  // Tag
+  const tag = (color: string) =>
+    (slide.subtitle || layout !== "dark-photo") ? (
+      <div
+        style={{
+          fontSize: 7,
+          fontWeight: 600,
+          letterSpacing: "1.5px",
+          textTransform: "uppercase",
+          color,
+          marginBottom: 8,
+        }}
+      >
+        {slide.subtitle ?? "IA aplicada a negócios"}
+      </div>
+    ) : null;
+
+  // ── dark-photo ──
+  if (layout === "dark-photo") {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          background: B.darkBg,
+          position: "relative",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+        }}
+      >
+        {/* Simulated photo gradient */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "linear-gradient(160deg,#2a1810 0%,#1a0e0c 40%,#180E0C 100%)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "radial-gradient(ellipse at 70% 20%,rgba(107,26,42,0.18) 0%,transparent 65%)",
+          }}
+        />
+        <div
+          style={{
+            position: "relative",
+            zIndex: 2,
+            padding: "0 20px 40px",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+            <div
+              style={{
+                width: 26,
+                height: 26,
+                borderRadius: "50%",
+                background: B.primary,
+                border: `1px solid ${B.light}`,
+                flexShrink: 0,
+              }}
+            />
+            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", fontWeight: 600 }}>
+              @davimoxoto
+            </span>
+          </div>
+          {tag("rgba(255,255,255,0.5)")}
+          <div
+            style={{
+              fontSize: 15,
+              fontWeight: 700,
+              color: "#fff",
+              lineHeight: 1.15,
+              marginBottom: 6,
+              fontFamily: "Georgia,serif",
+            }}
+          >
+            {slide.title}
+          </div>
+          {text && (
+            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", lineHeight: 1.5 }}>
+              {text.slice(0, 90)}
+            </div>
+          )}
+        </div>
+        {progressBar}
+        {swipeHint}
+      </div>
+    );
+  }
+
+  // ── gradient ──
+  if (layout === "gradient") {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          background: B.gradient,
+          position: "relative",
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div style={{ textAlign: "center", padding: "0 20px", position: "relative", zIndex: 2 }}>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.15)",
+              border: "1px solid rgba(255,255,255,0.3)",
+              margin: "0 auto 8px",
+            }}
+          />
+          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", fontWeight: 600, marginBottom: 6 }}>
+            @davimoxoto
+          </div>
+          {slide.subtitle && (
+            <div style={{ fontSize: 7, letterSpacing: "1.5px", textTransform: "uppercase", color: "rgba(255,255,255,0.5)", marginBottom: 8 }}>
+              {slide.subtitle}
+            </div>
+          )}
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 700,
+              color: "#fff",
+              lineHeight: 1.15,
+              marginBottom: 8,
+              fontFamily: "Georgia,serif",
+            }}
+          >
+            {slide.title}
+          </div>
+          {text && (
+            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", lineHeight: 1.5, marginBottom: 10 }}>
+              {text.slice(0, 80)}
+            </div>
+          )}
+          <div
+            style={{
+              display: "inline-block",
+              padding: "7px 18px",
+              background: B.lightBg,
+              color: B.dark,
+              borderRadius: 20,
+              fontSize: 9,
+              fontWeight: 700,
+            }}
+          >
+            {slide.cta ?? "Seguir @davimoxoto"}
+          </div>
+        </div>
+        {progressBar}
+      </div>
+    );
+  }
+
+  // ── feature-list ──
+  if (layout === "feature-list") {
+    const items = parseFeatures(text);
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          background: B.lightBg,
+          position: "relative",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+        }}
+      >
+        <div style={{ padding: "0 20px 40px" }}>
+          {slide.subtitle && (
+            <div style={{ fontSize: 7, fontWeight: 600, letterSpacing: "1.5px", textTransform: "uppercase", color: B.primary, marginBottom: 8 }}>
+              {slide.subtitle}
+            </div>
+          )}
+          <div style={{ fontSize: 14, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 12, fontFamily: "Georgia,serif" }}>
+            {slide.title}
+          </div>
+          {items.length > 0
+            ? items.map((it, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 10,
+                    padding: "7px 0",
+                    borderBottom: i < items.length - 1 ? `1px solid ${B.lightBorder}` : "none",
+                  }}
+                >
+                  <span style={{ fontSize: 12, color: B.primary, flexShrink: 0 }}>{it.icon}</span>
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 600, color: B.darkBg }}>{it.title}</div>
+                    {it.desc && <div style={{ fontSize: 8, color: "#8A7A74", marginTop: 1 }}>{it.desc}</div>}
+                  </div>
+                </div>
+              ))
+            : <div style={{ fontSize: 9, color: "#4A3A34", lineHeight: 1.5 }}>{text.slice(0, 120)}</div>
+          }
+        </div>
+        {progressBar}
+        {swipeHint}
+      </div>
+    );
+  }
+
+  // ── step-list ──
+  if (layout === "step-list") {
+    const steps = parseSteps(text);
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          background: B.lightBg,
+          position: "relative",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+        }}
+      >
+        <div style={{ padding: "0 20px 40px" }}>
+          {slide.subtitle && (
+            <div style={{ fontSize: 7, fontWeight: 600, letterSpacing: "1.5px", textTransform: "uppercase", color: B.primary, marginBottom: 8 }}>
+              {slide.subtitle}
+            </div>
+          )}
+          <div style={{ fontSize: 14, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 12, fontFamily: "Georgia,serif" }}>
+            {slide.title}
+          </div>
+          {steps.length > 0
+            ? steps.map((s, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 12,
+                    padding: "7px 0",
+                    borderBottom: i < steps.length - 1 ? `1px solid ${B.lightBorder}` : "none",
+                  }}
+                >
+                  <div style={{ fontSize: 18, fontFamily: "Georgia,serif", fontWeight: 300, color: B.light, lineHeight: 1, minWidth: 24 }}>
+                    {s.num}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 600, color: B.darkBg }}>{s.title}</div>
+                    {s.desc && <div style={{ fontSize: 8, color: "#4A3A34", marginTop: 1 }}>{s.desc}</div>}
+                  </div>
+                </div>
+              ))
+            : <div style={{ fontSize: 9, color: "#4A3A34", lineHeight: 1.5 }}>{text.slice(0, 120)}</div>
+          }
+        </div>
+        {progressBar}
+        {swipeHint}
+      </div>
+    );
+  }
+
+  // ── light ──
+  if (layout === "light") {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          background: B.lightBg,
+          position: "relative",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+        }}
+      >
+        <div style={{ padding: "0 20px 40px" }}>
+          {slide.subtitle && (
+            <div style={{ fontSize: 7, fontWeight: 600, letterSpacing: "1.5px", textTransform: "uppercase", color: B.primary, marginBottom: 8 }}>
+              {slide.subtitle}
+            </div>
+          )}
+          <div style={{ fontSize: 15, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 8, fontFamily: "Georgia,serif" }}>
+            {slide.title}
+          </div>
+          {text && (
+            <div style={{ fontSize: 9, color: "#4A3A34", lineHeight: 1.55 }}>
+              {text.slice(0, 150)}
+            </div>
+          )}
+        </div>
+        {progressBar}
+        {swipeHint}
+      </div>
+    );
+  }
+
+  // ── dark (default) ──
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        background: B.darkBg,
+        position: "relative",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "flex-end",
+      }}
+    >
+      <div style={{ padding: "0 20px 40px" }}>
+        {slide.subtitle && (
+          <div style={{ fontSize: 7, fontWeight: 600, letterSpacing: "1.5px", textTransform: "uppercase", color: B.light, marginBottom: 8 }}>
+            {slide.subtitle}
+          </div>
+        )}
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.15, marginBottom: 8, fontFamily: "Georgia,serif" }}>
+          {slide.title}
+        </div>
+        {text && (
+          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", lineHeight: 1.55 }}>
+            {text.slice(0, 150)}
+          </div>
+        )}
+      </div>
+      {progressBar}
+      {swipeHint}
+    </div>
+  );
+}
+
+// ── Main Component ─────────────────────────────────────────────────────────
+
+interface Props {
+  slides: Slide[];
+  pieceId: string;
+  onSlidesChange: (slides: Slide[]) => void;
+}
+
+export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
+  const [current, setCurrent] = useState(0);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<Slide>(() => slides[0]);
+  const [saving, startSave] = useTransition();
+
+  const currentSlide = slides[current];
+
+  function goTo(idx: number) {
+    const clamped = Math.max(0, Math.min(slides.length - 1, idx));
+    setCurrent(clamped);
+    setDraft({ ...slides[clamped] });
+    setEditing(false);
+  }
+
+  function handleEdit() {
+    setDraft({ ...currentSlide });
+    setEditing(true);
+  }
+
+  function handleCancel() {
+    setDraft({ ...currentSlide });
+    setEditing(false);
+  }
+
+  function handleSave() {
+    const next = slides.map((s) => (s.index === draft.index ? draft : s));
+    onSlidesChange(next);
+    setEditing(false);
+    startSave(() => {
+      void updateSlides(pieceId, next);
+    });
+  }
+
+  const layout = getLayout(currentSlide.body ?? "");
+
+  return (
+    <div className="rounded-xl border bg-card overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-3.5 border-b">
+        <div className="flex items-center gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Studio · {slides.length} slides
+          </p>
+          {saving && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
+        </div>
+        <a
+          href={`/api/generate/carousel?pieceId=${pieceId}`}
+          download
+          className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
+        >
+          <Download className="size-3.5" />
+          Baixar Carrossel HTML
+        </a>
+      </div>
+
+      <div className="flex flex-col lg:flex-row">
+        {/* ── Preview panel ── */}
+        <div className="flex flex-col items-center gap-4 bg-muted/20 px-6 py-5 border-b lg:border-b-0 lg:border-r lg:w-72 shrink-0">
+          {/* Navigation */}
+          <div className="flex items-center justify-between w-full">
+            <button
+              onClick={() => goTo(current - 1)}
+              disabled={current === 0}
+              className="rounded-full p-1.5 border bg-background hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="size-3.5" />
+            </button>
+            <span className="text-[11px] text-muted-foreground font-medium">
+              {current + 1} / {slides.length}
+            </span>
+            <button
+              onClick={() => goTo(current + 1)}
+              disabled={current === slides.length - 1}
+              className="rounded-full p-1.5 border bg-background hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight className="size-3.5" />
+            </button>
+          </div>
+
+          {/* Slide visual — fixed 4:5 aspect, 216px wide */}
+          <div
+            className="rounded-lg overflow-hidden shadow-lg border border-border/50"
+            style={{ width: 216, height: 270 }}
+          >
+            <SlideVisual slide={currentSlide} idx={current} total={slides.length} />
+          </div>
+
+          {/* Layout label */}
+          <div className="text-center">
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border bg-background text-muted-foreground">
+              {LAYOUT_LABELS[layout] ?? layout}
+            </span>
+          </div>
+
+          {/* Dot navigation */}
+          <div className="flex gap-1 flex-wrap justify-center max-w-[200px]">
+            {slides.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => goTo(i)}
+                title={`Slide ${i + 1}`}
+                className={`rounded-full transition-all duration-150 ${
+                  i === current
+                    ? "w-4 h-2 bg-primary"
+                    : "w-2 h-2 bg-muted-foreground/25 hover:bg-muted-foreground/50"
+                }`}
+              />
+            ))}
+          </div>
+
+          {/* Thumbnail strip */}
+          <div className="flex gap-2 overflow-x-auto w-full pb-1">
+            {slides.map((s, i) => (
+              <button
+                key={i}
+                onClick={() => goTo(i)}
+                className={`shrink-0 rounded overflow-hidden border-2 transition-colors ${
+                  i === current ? "border-primary" : "border-transparent hover:border-border"
+                }`}
+                style={{ width: 44, height: 55 }}
+                title={`Slide ${i + 1}: ${s.title}`}
+              >
+                <SlideVisual slide={s} idx={i} total={slides.length} />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Editor panel ── */}
+        <div className="flex-1 min-w-0 p-5">
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div>
+              <p className="text-sm font-semibold">Slide {current + 1}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {LAYOUT_LABELS[layout] ?? layout}
+              </p>
+            </div>
+            {!editing && (
+              <Button size="sm" variant="outline" onClick={handleEdit}>
+                <Pencil className="mr-1.5 size-3.5" />
+                Editar
+              </Button>
+            )}
+          </div>
+
+          {editing ? (
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Título
+                </label>
+                <Input
+                  value={draft.title}
+                  onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
+                  className="mt-1 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Subtítulo / Tag
+                </label>
+                <Input
+                  value={draft.subtitle ?? ""}
+                  onChange={(e) =>
+                    setDraft((d) => ({ ...d, subtitle: e.target.value || undefined }))
+                  }
+                  placeholder="Opcional"
+                  className="mt-1 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Corpo
+                </label>
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5 mb-1">
+                  Mantenha a linha <code className="bg-muted px-1 rounded">[Layout: …]</code> no final
+                </p>
+                <Textarea
+                  value={draft.body ?? ""}
+                  onChange={(e) => setDraft((d) => ({ ...d, body: e.target.value }))}
+                  rows={8}
+                  className="mt-0.5 text-xs font-mono"
+                />
+              </div>
+              {layout === "gradient" || draft.cta !== undefined ? (
+                <div>
+                  <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    CTA
+                  </label>
+                  <Input
+                    value={draft.cta ?? ""}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, cta: e.target.value || undefined }))
+                    }
+                    placeholder="Seguir @davimoxoto"
+                    className="mt-1 text-sm"
+                  />
+                </div>
+              ) : null}
+              <div className="flex gap-2 pt-1">
+                <Button size="sm" onClick={handleSave} disabled={saving}>
+                  {saving ? (
+                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                  ) : (
+                    <Check className="mr-1.5 size-3.5" />
+                  )}
+                  Salvar
+                </Button>
+                <Button size="sm" variant="ghost" onClick={handleCancel}>
+                  <X className="size-3.5" />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              <FieldBlock label="Título" value={currentSlide.title} mono={false} />
+              {currentSlide.subtitle && (
+                <FieldBlock label="Subtítulo" value={currentSlide.subtitle} mono={false} />
+              )}
+              {currentSlide.body && (
+                <FieldBlock label="Corpo" value={currentSlide.body} mono />
+              )}
+              {currentSlide.cta && (
+                <FieldBlock label="CTA" value={currentSlide.cta} mono={false} highlight />
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FieldBlock({
+  label,
+  value,
+  mono,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="rounded-lg bg-muted/40 px-3 py-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+        {label}
+      </p>
+      <p
+        className={`text-sm whitespace-pre-wrap leading-relaxed ${
+          mono ? "font-mono text-xs text-muted-foreground" : ""
+        } ${highlight ? "font-medium text-primary" : ""}`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
