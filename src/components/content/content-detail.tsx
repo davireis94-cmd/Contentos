@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, ClipboardCopy, Copy, Loader2, Pencil, Send, Wand2, X } from "lucide-react";
+import { DeletePieceButton } from "@/components/content/delete-piece-button";
 
 // Strip [Tool: production note] from body for display — keep in clipboard copy
 function stripNote(body: string): string {
@@ -483,19 +484,22 @@ export function ContentDetail({
       </section>
 
       {/* Actions */}
-      <div className="flex flex-wrap gap-2 border-t pt-4">
-        <Button asChild size="sm">
-          <Link href="/generate">
-            <Wand2 className="mr-1.5 size-3.5" />
-            Novo conteúdo
-          </Link>
-        </Button>
-        <Button asChild variant="outline" size="sm">
-          <Link href={`/generate?ref=${pieceId}`}>
-            <Wand2 className="mr-1.5 size-3.5" />
-            Gerar variação deste post
-          </Link>
-        </Button>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
+        <div className="flex flex-wrap gap-2">
+          <Button asChild size="sm">
+            <Link href="/generate">
+              <Wand2 className="mr-1.5 size-3.5" />
+              Novo conteúdo
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/generate?ref=${pieceId}`}>
+              <Wand2 className="mr-1.5 size-3.5" />
+              Gerar variação deste post
+            </Link>
+          </Button>
+        </div>
+        <DeletePieceButton pieceId={pieceId} variant="full" />
       </div>
     </div>
   );

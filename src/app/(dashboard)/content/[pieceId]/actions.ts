@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { Slide } from "@/lib/validations/generation";
@@ -51,4 +52,11 @@ export async function updateCaption(pieceId: string, caption: string) {
     .update({ caption })
     .eq("id", pieceId);
   revalidatePath(`/content/${pieceId}`);
+}
+
+export async function deleteContentPiece(pieceId: string) {
+  const supabase = await getClient();
+  await supabase.from("content_pieces").delete().eq("id", pieceId);
+  revalidatePath("/library");
+  redirect("/library");
 }

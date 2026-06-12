@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
 import { getSessionContext } from "@/lib/queries/context";
 import { STATUS_LABELS } from "@/types/app";
+import { DeletePieceButton } from "@/components/content/delete-piece-button";
 import type { ContentStatus, ContentFormat } from "@/types/app";
 
 const FORMAT_LABELS: Record<ContentFormat, string> = {
@@ -187,62 +188,68 @@ export default async function LibraryPage({
             const hook = getHook(piece.slides, piece.title);
 
             return (
-              <Link
-                key={piece.id}
-                href={`/content/${piece.id}`}
-                className="group flex items-start gap-4 px-4 py-3.5 transition-colors hover:bg-accent/30"
-              >
-                {/* Status dot */}
-                <div className="mt-1.5 shrink-0">
-                  <div
-                    className={`size-2 rounded-full ${STATUS_DOT[piece.status as ContentStatus] ?? "bg-gray-400"}`}
-                  />
-                </div>
+              <div key={piece.id} className="group flex items-center hover:bg-accent/30 transition-colors">
+                <Link
+                  href={`/content/${piece.id}`}
+                  className="flex flex-1 min-w-0 items-start gap-4 px-4 py-3.5"
+                >
+                  {/* Status dot */}
+                  <div className="mt-1.5 shrink-0">
+                    <div
+                      className={`size-2 rounded-full ${STATUS_DOT[piece.status as ContentStatus] ?? "bg-gray-400"}`}
+                    />
+                  </div>
 
-                {/* Main content */}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium leading-snug group-hover:text-primary transition-colors">
-                    {hook}
-                  </p>
-                  <div className="mt-1 flex flex-wrap items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] border ${FORMAT_COLORS[piece.format as ContentFormat] ?? ""}`}
-                    >
-                      {FORMAT_LABELS[piece.format as ContentFormat] ?? piece.format}
-                    </Badge>
-                    <span className="text-[11px] text-muted-foreground">
-                      {STATUS_LABELS[piece.status as ContentStatus] ?? piece.status}
-                    </span>
-                    {brand?.name && (
-                      <>
-                        <span className="text-[10px] text-muted-foreground/40">·</span>
-                        <span className="text-[11px] text-muted-foreground">{brand.name}</span>
-                      </>
+                  {/* Main content */}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium leading-snug group-hover:text-primary transition-colors">
+                      {hook}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] border ${FORMAT_COLORS[piece.format as ContentFormat] ?? ""}`}
+                      >
+                        {FORMAT_LABELS[piece.format as ContentFormat] ?? piece.format}
+                      </Badge>
+                      <span className="text-[11px] text-muted-foreground">
+                        {STATUS_LABELS[piece.status as ContentStatus] ?? piece.status}
+                      </span>
+                      {brand?.name && (
+                        <>
+                          <span className="text-[10px] text-muted-foreground/40">·</span>
+                          <span className="text-[11px] text-muted-foreground">{brand.name}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Date */}
+                  <div className="shrink-0 text-right">
+                    {piece.start_date ? (
+                      <div className="flex items-center gap-1 text-[11px] text-purple-600">
+                        <Calendar className="size-3" />
+                        {new Date(piece.start_date).toLocaleDateString("pt-BR", {
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground">
+                        {new Date(piece.created_at).toLocaleDateString("pt-BR", {
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </span>
                     )}
                   </div>
-                </div>
+                </Link>
 
-                {/* Date */}
-                <div className="shrink-0 text-right">
-                  {piece.start_date ? (
-                    <div className="flex items-center gap-1 text-[11px] text-purple-600">
-                      <Calendar className="size-3" />
-                      {new Date(piece.start_date).toLocaleDateString("pt-BR", {
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </div>
-                  ) : (
-                    <span className="text-[11px] text-muted-foreground">
-                      {new Date(piece.created_at).toLocaleDateString("pt-BR", {
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </span>
-                  )}
+                {/* Delete button — outside Link to not trigger navigation */}
+                <div className="shrink-0 pr-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <DeletePieceButton pieceId={piece.id} variant="icon" />
                 </div>
-              </Link>
+              </div>
             );
           })}
         </div>
