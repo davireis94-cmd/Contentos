@@ -106,8 +106,10 @@ FORMATO DE SAÍDA (retorne EXATAMENTE esta estrutura, sem markdown, sem texto an
     }
     const rawObj = JSON.parse(jsonStr);
     rawObj.format = piece.format;
-    // Ensure required schema fields that refine might omit
-    if (!rawObj.platform) rawObj.platform = "instagram";
+    // Normalize platform to valid enum value
+    const validPlatforms = ["instagram", "tiktok", "youtube", "linkedin", "x"];
+    const rawPlatform = typeof rawObj.platform === "string" ? rawObj.platform.toLowerCase().trim() : "";
+    rawObj.platform = validPlatforms.includes(rawPlatform) ? rawPlatform : "instagram";
     if (rawObj.productionTool === undefined) rawObj.productionTool = "";
 
     if (Array.isArray(rawObj.hashtags)) {
@@ -138,7 +140,7 @@ FORMATO DE SAÍDA (retorne EXATAMENTE esta estrutura, sem markdown, sem texto an
     console.error("[refine] Error:", err);
     const msg = err instanceof Error ? err.message : "Erro desconhecido";
     // Zod validation errors are verbose — show a friendlier message
-    const isZod = msg.includes("ZodError") || msg.includes("Required") || msg.includes("invalid_type");
+    const isZod = msg.includes("ZodError") || msg.includes("Required") || msg.includes("invalid_type") || msg.includes("invalid_value") || msg.includes("invalid_enum_value");
     return NextResponse.json({
       error: isZod ? "Formato inválido retornado pela IA. Tente novamente." : msg,
     }, { status: 500 });

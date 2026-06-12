@@ -726,7 +726,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
                 <FieldBlock label="Subtítulo" value={currentSlide.subtitle} mono={false} />
               )}
               {currentSlide.body && (
-                <FieldBlock label="Corpo" value={currentSlide.body} mono />
+                <FieldBlock label="Corpo" value={cleanBody(currentSlide.body)} mono />
               )}
               {currentSlide.cta && (
                 <FieldBlock label="CTA" value={currentSlide.cta} mono={false} highlight />
