@@ -56,6 +56,11 @@ function escapeHtml(str: string): string {
     .replace(/"/g, "&quot;");
 }
 
+// Convert literal \n to <br> so multi-line AI body text renders correctly in HTML
+function htmlLines(text: string): string {
+  return text.split("\n").filter((l) => l.trim()).map(escapeHtml).join("<br>");
+}
+
 function progressBar(idx: number, total: number, dark: boolean): string {
   const pct = ((idx + 1) / total) * 100;
   const trackBg = dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)";
@@ -103,14 +108,14 @@ function buildSlide(slide: SlideData, total: number, photoIdx: number): string {
       return `<div class="slide dark" id="slide-${slide.index}">
         <div class="img-bg"><img src="${photo}" alt="" style="width:100%;height:100%;object-fit:cover;" crossorigin="anonymous"></div>
         <div class="img-overlay" style="background:linear-gradient(to top,#180E0C 35%,rgba(24,14,12,0.6) 65%,rgba(24,14,12,0.3) 100%);"></div>
-        <div class="slide-content" style="padding-bottom:56px;">
+        <div class="slide-content" style="padding-bottom:56px;overflow:hidden;">
           <div class="logo-lockup" style="margin-bottom:24px;">
             <div class="logo-circle avatar-photo" style="background-size:cover;background-position:center top;background-repeat:no-repeat;border:1px solid rgba(107,26,42,0.8);"></div>
             <span class="logo-name sans" style="color:rgba(255,255,255,0.6);font-size:12px;">@davimoxoto</span>
           </div>
           ${slide.subtitle ? `<span class="tag muted">${escapeHtml(slide.subtitle)}</span>` : '<span class="tag muted">IA aplicada a negócios</span>'}
           <h1 class="serif" style="color:#fff;font-size:27px;line-height:1.15;margin-bottom:10px;">${escapeHtml(slide.title)}</h1>
-          ${cleanBody ? `<p class="body sans" style="color:rgba(255,255,255,0.55);font-size:13px;">${escapeHtml(cleanBody)}</p>` : ""}
+          ${cleanBody ? `<p class="body sans" style="color:rgba(255,255,255,0.55);font-size:13px;">${htmlLines(cleanBody)}</p>` : ""}
         </div>
         ${prog}
         ${!isLast ? swipeArrow(true) : ""}
@@ -125,7 +130,7 @@ function buildSlide(slide: SlideData, total: number, photoIdx: number): string {
           </div>
           ${slide.subtitle ? `<span class="tag muted">${escapeHtml(slide.subtitle)}</span>` : '<span class="tag muted">A pergunta que fica</span>'}
           <h2 class="serif" style="color:#fff;font-size:26px;margin-bottom:16px;text-align:center;">${escapeHtml(slide.title)}</h2>
-          ${cleanBody ? `<p class="body sans" style="color:rgba(255,255,255,0.6);text-align:center;margin-bottom:4px;">${escapeHtml(cleanBody)}</p>` : ""}
+          ${cleanBody ? `<p class="body sans" style="color:rgba(255,255,255,0.6);text-align:center;margin-bottom:4px;">${htmlLines(cleanBody)}</p>` : ""}
           <div class="cta-btn">${escapeHtml(slide.cta ?? "Seguir @davimoxoto")}</div>
         </div>
         ${prog}
@@ -133,10 +138,10 @@ function buildSlide(slide: SlideData, total: number, photoIdx: number): string {
     }
     case "light": {
       return `<div class="slide light" id="slide-${slide.index}">
-        <div class="slide-content">
+        <div class="slide-content" style="overflow:hidden;">
           ${slide.subtitle ? `<span class="tag primary">${escapeHtml(slide.subtitle)}</span>` : ""}
           <h2 class="serif" style="color:var(--dark-bg);margin-bottom:16px;">${escapeHtml(slide.title)}</h2>
-          ${cleanBody ? `<p class="body sans" style="color:#4A3A34;">${escapeHtml(cleanBody)}</p>` : ""}
+          ${cleanBody ? `<p class="body sans" style="color:#4A3A34;">${htmlLines(cleanBody)}</p>` : ""}
         </div>
         ${prog}
         ${!isLast ? swipeArrow(false) : ""}
@@ -152,9 +157,9 @@ function buildSlide(slide: SlideData, total: number, photoIdx: number): string {
               ${it.desc ? `<span class="feature-desc sans">${escapeHtml(it.desc)}</span>` : ""}
             </div>
           </div>`).join("")
-        : `<p class="body sans" style="color:#4A3A34;">${escapeHtml(cleanBody)}</p>`;
+        : `<p class="body sans" style="color:#4A3A34;">${htmlLines(cleanBody)}</p>`;
       return `<div class="slide light" id="slide-${slide.index}">
-        <div class="slide-content">
+        <div class="slide-content" style="overflow:hidden;">
           ${slide.subtitle ? `<span class="tag primary">${escapeHtml(slide.subtitle)}</span>` : ""}
           <h2 class="serif" style="color:var(--dark-bg);margin-bottom:20px;">${escapeHtml(slide.title)}</h2>
           ${rows}
@@ -170,12 +175,12 @@ function buildSlide(slide: SlideData, total: number, photoIdx: number): string {
             <span class="step-num" style="color:var(--brand-primary);">${escapeHtml(s.num)}</span>
             <div>
               <span class="step-title sans" style="color:var(--dark-bg);">${escapeHtml(s.title)}</span>
-              ${s.desc ? `<span class="step-desc sans">${escapeHtml(s.desc)}</span>` : ""}
+              ${s.desc ? `<span class="step-desc sans" style="color:#8A7A74;">${escapeHtml(s.desc)}</span>` : ""}
             </div>
           </div>`).join("")
-        : `<p class="body sans" style="color:#4A3A34;">${escapeHtml(cleanBody)}</p>`;
+        : `<p class="body sans" style="color:#4A3A34;">${htmlLines(cleanBody)}</p>`;
       return `<div class="slide light" id="slide-${slide.index}">
-        <div class="slide-content">
+        <div class="slide-content" style="overflow:hidden;">
           ${slide.subtitle ? `<span class="tag primary">${escapeHtml(slide.subtitle)}</span>` : ""}
           <h2 class="serif" style="color:var(--dark-bg);margin-bottom:20px;">${escapeHtml(slide.title)}</h2>
           ${rows}
@@ -186,10 +191,10 @@ function buildSlide(slide: SlideData, total: number, photoIdx: number): string {
     }
     default: { // dark
       return `<div class="slide dark" id="slide-${slide.index}">
-        <div class="slide-content">
+        <div class="slide-content" style="overflow:hidden;">
           ${slide.subtitle ? `<span class="tag light-color">${escapeHtml(slide.subtitle)}</span>` : ""}
           <h2 class="serif" style="color:#fff;margin-bottom:12px;">${escapeHtml(slide.title)}</h2>
-          ${cleanBody ? `<p class="body sans" style="color:rgba(255,255,255,0.65);">${escapeHtml(cleanBody)}</p>` : ""}
+          ${cleanBody ? `<p class="body sans" style="color:rgba(255,255,255,0.65);">${htmlLines(cleanBody)}</p>` : ""}
         </div>
         ${prog}
         ${!isLast ? swipeArrow(true) : ""}
@@ -243,7 +248,7 @@ body{background:#111;display:flex;flex-direction:column;align-items:center;justi
 .tag.primary{color:var(--brand-primary);}.tag.light-color{color:var(--brand-light);}.tag.muted{color:rgba(255,255,255,0.5);}
 h1,h2{font-family:'Playfair Display',serif;letter-spacing:-.3px;line-height:1.1;}
 h1{font-size:30px;font-weight:700;}h2{font-size:28px;font-weight:600;}
-.body{font-size:14px;line-height:1.55;}
+.body{font-size:14px;line-height:1.6;}
 .logo-lockup{display:flex;align-items:center;gap:10px;margin-bottom:20px;}
 .logo-circle{width:40px;height:40px;border-radius:50%;background:var(--brand-primary);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:700;flex-shrink:0;position:relative;overflow:hidden;}
 .logo-circle.on-gradient{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);}
@@ -257,7 +262,7 @@ h1{font-size:30px;font-weight:700;}h2{font-size:28px;font-weight:600;}
 .step-row:last-child{border-bottom:none!important;}
 .step-num{font-family:'Playfair Display',serif;font-size:26px;font-weight:300;color:var(--brand-light);min-width:34px;line-height:1;}
 .step-title{font-size:14px;font-weight:600;color:var(--dark-bg);display:block;}
-.step-desc{font-size:12px;color:#8A7A74;display:block;margin-top:2px;}
+.step-desc{font-size:12px;color:#8A7A74;display:block;margin-top:2px;line-height:1.4;}
 .cta-btn{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;background:var(--light-bg);color:var(--brand-dark);font-family:'Inter',sans-serif;font-weight:700;font-size:14px;border-radius:28px;margin-top:20px;}
 .img-bg{position:absolute;inset:0;z-index:0;overflow:hidden;}.img-bg img{width:100%;height:100%;object-fit:cover;}
 .img-overlay{position:absolute;inset:0;z-index:1;}
