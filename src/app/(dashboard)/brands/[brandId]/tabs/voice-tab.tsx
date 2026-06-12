@@ -72,7 +72,8 @@ export function VoiceTab({ brandId, voice }: VoiceTabProps) {
             <TagInput
               name="pillars"
               defaultValue={voice?.content_pillars ?? []}
-              placeholder="Ex: Autoridade, Educação, Bastidores..."
+              placeholder="Digite um pilar e pressione Enter ou vírgula"
+              hint="Cada pilar = uma entrada. Use vírgula ou Enter para separar. Ex: Autoridade → Enter → Bastidores → Enter"
             />
           </div>
 
@@ -81,7 +82,8 @@ export function VoiceTab({ brandId, voice }: VoiceTabProps) {
             <TagInput
               name="phrases"
               defaultValue={voice?.characteristic_phrases ?? []}
-              placeholder="Expressões que você sempre usa"
+              placeholder="Digite uma frase e pressione Enter"
+              hint="Cada chip = uma expressão. Bordões, encerramentos, metáforas que você usa. Pressione Enter para adicionar."
             />
           </div>
 
@@ -90,7 +92,8 @@ export function VoiceTab({ brandId, voice }: VoiceTabProps) {
             <TagInput
               name="forbidden"
               defaultValue={voice?.forbidden_words ?? []}
-              placeholder="Palavras que a IA nunca deve usar"
+              placeholder="Digite uma palavra e pressione Enter ou vírgula"
+              hint="Clichês de IA e expressões que não combinam com você. Vírgula ou Enter para separar."
             />
           </div>
 

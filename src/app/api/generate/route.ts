@@ -6,6 +6,7 @@ import {
   generationInputSchema,
   generationOutputSchema,
 } from "@/lib/validations/generation";
+// generationOutputSchema used for validating Claude's response below
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -24,7 +25,6 @@ export async function POST(request: NextRequest) {
       };
 
       try {
-        // Auth
         const supabase = createServerClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -46,7 +46,6 @@ export async function POST(request: NextRequest) {
           return;
         }
 
-        // Input validation
         const body = await request.json();
         const parseResult = generationInputSchema.safeParse(body);
         if (!parseResult.success) {
@@ -58,7 +57,6 @@ export async function POST(request: NextRequest) {
 
         send("progress", { message: "Buscando contexto da marca..." });
 
-        // Fetch brand context + documents in parallel
         const [{ data: brand }, { data: brandRow }] = await Promise.all([
           supabase
             .from("brands")
@@ -85,7 +83,6 @@ export async function POST(request: NextRequest) {
 
         send("progress", { message: "Montando briefing criativo..." });
 
-        // Parse extracted document contexts
         const rawDocs = Array.isArray((brand as Record<string, unknown>).brand_documents)
           ? (brand as Record<string, unknown>).brand_documents as { extracted_content: string | null }[]
           : [];
@@ -96,7 +93,27 @@ export async function POST(request: NextRequest) {
           })
           .filter(Boolean);
 
-        // Build prompts
+        // Fetch reference posts if provided
+        let references: Array<{ title: string; format: string; slides: { index: number; title: string; subtitle?: string; body: string; cta?: string }[]; caption: string }> = [];
+        if (input.referenceIds && input.referenceIds.length > 0) {
+          const { data: refPieces } = await supabase
+            .from("content_pieces")
+            .select("title, format, slides, caption")
+            .in("id", input.referenceIds)
+            .eq("workspace_id", brandRow.workspace_id);
+
+          if (refPieces) {
+            references = refPieces
+              .filter((p) => p.slides && p.caption)
+              .map((p) => ({
+                title: p.title as string,
+                format: p.format as string,
+                slides: p.slides as { index: number; title: string; subtitle?: string; body: string; cta?: string }[],
+                caption: p.caption as string,
+              }));
+          }
+        }
+
         const brandContext = {
           name: brand.name,
           description: brand.description,
@@ -111,14 +128,38 @@ export async function POST(request: NextRequest) {
               } | null),
           examples: Array.isArray(brand.brand_examples) ? brand.brand_examples : [],
           documents,
+          references,
+          externalRef: input.externalRef,
         };
 
         const systemPrompt = buildSystemPrompt(brandContext, input);
         const userPrompt = buildUserPrompt(input);
 
-        send("progress", { message: "Gerando conteúdo com IA..." });
+        // Create draft row immediately so it appears in the library
+        const { data: draftPiece, error: draftError } = await supabase
+          .from("content_pieces")
+          .insert({
+            workspace_id: brandRow.workspace_id,
+            brand_id: input.brandId,
+            created_by: user.id,
+            title: input.topic.slice(0, 120),
+            format: input.format,
+            status: "idea",
+            objective: input.objective,
+            slides: [],
+            hashtags: [],
+          })
+          .select("id")
+          .single();
 
-        // Guard: ANTHROPIC_API_KEY
+        if (draftError || !draftPiece) {
+          send("error", { message: "Erro ao criar rascunho." });
+          controller.close();
+          return;
+        }
+
+        send("progress", { message: references.length > 0 ? "Analisando referências e gerando conteúdo..." : "Gerando conteúdo com IA..." });
+
         if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY.startsWith("sk-ant-COLE")) {
           send("error", {
             message: "Configure a variável ANTHROPIC_API_KEY no arquivo .env.local para usar o gerador.",
@@ -127,7 +168,6 @@ export async function POST(request: NextRequest) {
           return;
         }
 
-        // Claude streaming
         const claudeStream = anthropic.messages.stream({
           model: "claude-sonnet-4-6",
           max_tokens: 4096,
@@ -144,49 +184,68 @@ export async function POST(request: NextRequest) {
 
         send("progress", { message: "Validando e salvando conteúdo..." });
 
-        // Parse & validate output
         let parsed;
         try {
           const jsonMatch = fullText.match(/\{[\s\S]*\}/);
           if (!jsonMatch) throw new Error("Sem JSON na resposta");
-          parsed = generationOutputSchema.parse(JSON.parse(jsonMatch[0]));
-        } catch {
-          send("error", { message: "A IA retornou um formato inesperado. Tente novamente." });
+
+          const rawObj = JSON.parse(jsonMatch[0]);
+
+          // Guarantee format/platform match input — don't trust Claude's echoed values
+          rawObj.format = input.format;
+          rawObj.platform = input.platform;
+          rawObj.productionTool = input.productionTool ?? rawObj.productionTool ?? "";
+
+          // Sanitize hashtags: remove spaces/special chars, ensure leading #
+          if (Array.isArray(rawObj.hashtags)) {
+            rawObj.hashtags = rawObj.hashtags
+              .map((h: unknown) => {
+                if (typeof h !== "string") return null;
+                const clean = h.replace(/\s+/g, "").replace(/[^\p{L}\p{N}_#]/gu, "");
+                return clean.startsWith("#") ? clean : `#${clean}`;
+              })
+              .filter((h: string | null): h is string => !!h && h.length > 2);
+          }
+
+          parsed = generationOutputSchema.parse(rawObj);
+        } catch (err) {
+          const detail = err instanceof Error ? err.message : String(err);
+          send("error", { message: `Formato inesperado: ${detail.slice(0, 300)}` });
           controller.close();
           return;
         }
 
-        // Save to DB
-        const { data: piece, error: insertError } = await supabase
+        // Update the draft with generated content
+        const { error: updateError } = await supabase
           .from("content_pieces")
-          .insert({
-            workspace_id: brandRow.workspace_id,
-            brand_id: input.brandId,
-            created_by: user.id,
+          .update({
             title: parsed.title,
-            format: parsed.format,
             status: "scripted",
-            ai_output: parsed,
-            ai_prompt: userPrompt,
+            slides: parsed.slides,
+            caption: parsed.caption,
+            hashtags: parsed.hashtags,
           })
-          .select("id")
-          .single();
+          .eq("id", draftPiece.id);
 
-        if (insertError || !piece) {
-          send("error", { message: "Erro ao salvar conteúdo." });
+        if (updateError) {
+          send("error", { message: "Erro ao salvar conteúdo gerado." });
           controller.close();
           return;
         }
 
-        // Log usage
         await supabase.from("usage_logs").insert({
           workspace_id: brandRow.workspace_id,
           user_id: user.id,
           type: "generation",
-          metadata: { brand_id: input.brandId, format: input.format, piece_id: piece.id },
+          metadata: {
+            brand_id: input.brandId,
+            format: input.format,
+            piece_id: draftPiece.id,
+            reference_count: references.length,
+          },
         });
 
-        send("complete", { pieceId: piece.id, output: parsed });
+        send("complete", { pieceId: draftPiece.id, output: parsed });
       } catch (err) {
         const message = err instanceof Error ? err.message : "Erro inesperado.";
         try {

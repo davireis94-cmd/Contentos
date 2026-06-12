@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { anthropic } from "@/lib/ai/anthropic";
-import mammoth from "mammoth";
+import { extractDocumentContent } from "@/lib/ai/extract-document";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -22,60 +21,6 @@ function supabaseFromRequest(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { cookies: { getAll: () => request.cookies.getAll(), setAll: () => {} } }
   );
-}
-
-async function extractWithClaude(
-  buffer: Buffer,
-  fileType: string,
-  fileName: string
-): Promise<string> {
-  const kind = ACCEPTED_TYPES[fileType] ?? "txt";
-  const base64 = buffer.toString("base64");
-
-  const extractPrompt = `Analise este documento de identidade de marca e extraia as informações em JSON:
-{
-  "resumo": "resumo da marca em 2-3 frases",
-  "publico_alvo": "descrição do público-alvo",
-  "tom_de_voz": "como a marca se comunica",
-  "valores": ["valor1", "valor2"],
-  "diferenciais": ["diferencial1"],
-  "pilares": ["pilar de conteúdo 1", "pilar 2"],
-  "frases_chave": ["frases características"],
-  "palavras_evitar": ["palavras que contradizem a identidade"],
-  "posicionamento": "como a marca se posiciona"
-}
-Retorne APENAS o JSON, sem markdown.`;
-
-  let content;
-
-  if (kind === "pdf") {
-    content = [
-      { type: "document" as const, source: { type: "base64" as const, media_type: "application/pdf" as const, data: base64 } },
-      { type: "text" as const, text: extractPrompt },
-    ];
-  } else if (kind === "image") {
-    const mediaType = fileType as "image/png" | "image/jpeg" | "image/webp";
-    content = [
-      { type: "image" as const, source: { type: "base64" as const, media_type: mediaType, data: base64 } },
-      { type: "text" as const, text: extractPrompt },
-    ];
-  } else if (kind === "docx" || kind === "doc") {
-    const { value: text } = await mammoth.extractRawText({ buffer });
-    content = [{ type: "text" as const, text: `DOCUMENTO: ${fileName}\n\n${text}\n\n---\n${extractPrompt}` }];
-  } else {
-    const text = buffer.toString("utf-8");
-    content = [{ type: "text" as const, text: `DOCUMENTO: ${fileName}\n\n${text}\n\n---\n${extractPrompt}` }];
-  }
-
-  const msg = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1024,
-    messages: [{ role: "user", content }],
-  });
-
-  const raw = msg.content[0].type === "text" ? msg.content[0].text : "";
-  const match = raw.match(/\{[\s\S]*\}/);
-  return match ? match[0] : raw;
 }
 
 export async function POST(request: NextRequest) {
@@ -116,7 +61,7 @@ export async function POST(request: NextRequest) {
   let extractedContent: string | null = null;
   if (process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_API_KEY.startsWith("sk-ant-COLE")) {
     try {
-      extractedContent = await extractWithClaude(buffer, file.type, file.name);
+      extractedContent = await extractDocumentContent(buffer, file.type, file.name);
     } catch (err) {
       console.error("Claude extraction error:", err);
     }

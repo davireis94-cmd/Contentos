@@ -14,6 +14,14 @@ export const objectiveSchema = z.enum([
   "inspire",
 ]);
 
+export const platformSchema = z.enum([
+  "instagram",
+  "tiktok",
+  "youtube",
+  "linkedin",
+  "x",
+]);
+
 export const slideSchema = z.object({
   index: z.number().int().min(0),
   title: z.string().min(1),
@@ -30,13 +38,27 @@ export const slideSchema = z.object({
 export const generationOutputSchema = z.object({
   title: z.string().min(1),
   format: contentFormatSchema,
+  platform: platformSchema.optional(),
+  productionTool: z.string().optional(),
   slides: z.array(slideSchema).min(1),
   caption: z.string().min(1),
   hashtags: z.array(z.string().regex(/^#?[\p{L}\p{N}_]+$/u)).min(3).max(30),
 });
 
+export const importedContentSchema = z.object({
+  url: z.string().max(2000),
+  platform: z.string().max(50),
+  platformLabel: z.string().max(100).optional(),
+  title: z.string().max(500).nullable(),
+  description: z.string().max(5000).nullable(),
+  imageUrl: z.string().max(2000).nullable().optional(),
+  author: z.string().max(200).nullable(),
+  isPartial: z.boolean().optional(),
+});
+
 export const generationInputSchema = z.object({
   brandId: z.string().uuid(),
+  platform: platformSchema,
   topic: z.string().min(3).max(500),
   objective: objectiveSchema,
   format: contentFormatSchema,
@@ -44,6 +66,10 @@ export const generationInputSchema = z.object({
   toneOverride: z
     .enum(["formal", "conversational", "authority", "minimalist"])
     .optional(),
+  productionTool: z.string().max(100).optional(),
+  referenceIds: z.array(z.string().uuid()).max(3).optional(),
+  externalRef: z.string().max(5000).optional(),
+  importedRef: importedContentSchema.optional(),
 });
 
 export type GenerationOutput = z.infer<typeof generationOutputSchema>;

@@ -6,9 +6,11 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, children }: PageHeaderProps) {
   return (
-    <div className="flex items-start justify-between border-b px-6 py-4">
+    <div className="flex items-start justify-between border-b bg-card px-6 py-4">
       <div>
-        <h1 className="text-base font-medium">{title}</h1>
+        <h1 className="text-lg font-bold tracking-tight" style={{ fontFamily: "var(--font-sora), var(--font-inter), sans-serif" }}>
+          {title}
+        </h1>
         {description && (
           <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
         )}

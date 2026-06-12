@@ -2,19 +2,28 @@ import { notFound } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/layout/page-header";
 import { getSessionContext } from "@/lib/queries/context";
-import { scoreHint } from "@/lib/brand-score";
+import { computeQualityItems, computeLiveScore, type DocExtracted } from "@/lib/brand-quality";
+import { QualityGuide } from "@/components/brand/quality-guide";
 import { IdentityTab } from "./tabs/identity-tab";
 import { VoiceTab } from "./tabs/voice-tab";
 import { ExamplesTab } from "./tabs/examples-tab";
 import { ReferencesTab } from "./tabs/references-tab";
 import { DocumentsTab } from "./tabs/documents-tab";
+import { SuggestionsTab } from "./tabs/suggestions-tab";
+
+const VALID_TABS = ["identity", "voice", "examples", "references", "documents", "suggestions"];
 
 export default async function BrandDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ brandId: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { brandId } = await params;
+  const { tab: tabParam } = await searchParams;
+  const activeTab = VALID_TABS.includes(tabParam ?? "") ? tabParam! : "identity";
+
   const { supabase, workspace } = await getSessionContext();
   if (!workspace) return null;
 
@@ -27,7 +36,11 @@ export default async function BrandDetailPage({
   ] = await Promise.all([
     supabase.from("brands").select("*").eq("id", brandId).maybeSingle(),
     supabase.from("brand_voice").select("*").eq("brand_id", brandId).maybeSingle(),
-    supabase.from("brand_references").select("id, name, handle, platforms, notes, ai_analysis").eq("brand_id", brandId).order("created_at"),
+    supabase
+      .from("brand_references")
+      .select("id, name, handle, platforms, notes, ai_analysis")
+      .eq("brand_id", brandId)
+      .order("created_at"),
     supabase
       .from("brand_examples")
       .select("id, content, created_at")
@@ -42,33 +55,40 @@ export default async function BrandDetailPage({
 
   if (!brand) notFound();
 
-  const hint = scoreHint(brand.brand_score);
+  const docExtracted: DocExtracted = (() => {
+    const parsed = (documents ?? [])
+      .map((d) => {
+        try { return d.extracted_content ? JSON.parse(d.extracted_content) : null; }
+        catch { return null; }
+      })
+      .filter(Boolean) as Record<string, unknown>[];
+
+    return {
+      hasPublicoAlvo: parsed.some((e) => typeof e.publico_alvo === "string" && (e.publico_alvo as string).trim().length > 0),
+      hasPilares: parsed.some((e) => Array.isArray(e.pilares) && (e.pilares as unknown[]).length > 0),
+      hasFrasesChave: parsed.some((e) => Array.isArray(e.frases_chave) && (e.frases_chave as unknown[]).length > 0),
+      hasPalavrasEvitar: parsed.some((e) => Array.isArray(e.palavras_evitar) && (e.palavras_evitar as unknown[]).length > 0),
+    };
+  })();
+
+  const qualityItems = computeQualityItems(
+    brand,
+    voice,
+    examples?.length ?? 0,
+    documents?.length ?? 0,
+    references?.length ?? 0,
+    docExtracted
+  );
+  const liveScore = computeLiveScore(qualityItems);
 
   return (
     <>
-      <PageHeader title={brand.name} description="Brand Brain — memória da IA.">
-        <div className="flex w-44 flex-col gap-1">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Brand Score</span>
-            <span className="font-medium">{brand.brand_score}%</span>
-          </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-accent">
-            <div
-              className="h-full rounded-full bg-foreground transition-all"
-              style={{ width: `${brand.brand_score}%` }}
-            />
-          </div>
-        </div>
-      </PageHeader>
+      <PageHeader title={brand.name} description="Brand Brain — memória da IA." />
 
-      <div className="flex-1 p-6">
-        {hint && (
-          <p className="mb-4 rounded-md border border-dashed bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-            {hint}
-          </p>
-        )}
+      <div className="flex-1 space-y-4 p-6">
+        <QualityGuide brandId={brand.id} score={liveScore} items={qualityItems} />
 
-        <Tabs defaultValue="identity" className="max-w-2xl">
+        <Tabs key={activeTab} defaultValue={activeTab} className="max-w-2xl">
           <TabsList>
             <TabsTrigger value="identity">Identidade</TabsTrigger>
             <TabsTrigger value="voice">Tom de voz</TabsTrigger>
@@ -81,6 +101,7 @@ export default async function BrandDetailPage({
             <TabsTrigger value="documents">
               Documentos ({documents?.length ?? 0})
             </TabsTrigger>
+            <TabsTrigger value="suggestions">Sugestões ✦</TabsTrigger>
           </TabsList>
 
           <TabsContent value="identity" className="mt-4">
@@ -104,6 +125,13 @@ export default async function BrandDetailPage({
               brandId={brand.id}
               workspaceId={workspace.id}
               initialDocuments={documents ?? []}
+            />
+          </TabsContent>
+          <TabsContent value="suggestions" className="mt-4">
+            <SuggestionsTab
+              brandId={brand.id}
+              brandName={brand.name}
+              references={(references ?? []).map((r) => ({ name: r.name, handle: r.handle ?? null }))}
             />
           </TabsContent>
         </Tabs>

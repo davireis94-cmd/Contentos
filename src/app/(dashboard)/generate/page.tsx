@@ -6,19 +6,27 @@ import { BriefForm } from "@/components/generate/brief-form";
 export default async function GeneratePage({
   searchParams,
 }: {
-  searchParams: Promise<{ brandId?: string }>;
+  searchParams: Promise<{ brandId?: string; ref?: string; topic?: string; ext?: string }>;
 }) {
   const { user, workspace, supabase } = await getSessionContext();
   if (!user) redirect("/login");
   if (!workspace) redirect("/onboarding");
 
-  const { brandId } = await searchParams;
+  const { brandId, ref, topic, ext } = await searchParams;
 
-  const { data: brands } = await supabase
-    .from("brands")
-    .select("id, name, logo_url")
-    .eq("workspace_id", workspace.id)
-    .order("name");
+  const [{ data: brands }, { data: recentPieces }] = await Promise.all([
+    supabase
+      .from("brands")
+      .select("id, name, logo_url")
+      .eq("workspace_id", workspace.id)
+      .order("name"),
+    supabase
+      .from("content_pieces")
+      .select("id, title, format, brands(name)")
+      .eq("workspace_id", workspace.id)
+      .order("created_at", { ascending: false })
+      .limit(30),
+  ]);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -26,7 +34,21 @@ export default async function GeneratePage({
         title="Gerar conteúdo"
         description="Preencha o briefing e a IA cria o post completo no estilo da sua marca."
       />
-      <BriefForm brands={brands ?? []} defaultBrandId={brandId} />
+      <BriefForm
+        brands={brands ?? []}
+        defaultBrandId={brandId}
+        recentPieces={(recentPieces ?? []).map((p) => ({
+          id: p.id,
+          title: p.title,
+          format: p.format,
+          brandName: Array.isArray(p.brands)
+            ? (p.brands[0] as { name: string } | null)?.name ?? null
+            : (p.brands as { name: string } | null)?.name ?? null,
+        }))}
+        defaultRefId={ref}
+        defaultTopic={topic}
+        defaultExt={!!ext}
+      />
     </div>
   );
 }

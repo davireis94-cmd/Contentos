@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { FileText, Loader2, Sparkles, Trash2, Upload } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { FileText, Loader2, RefreshCw, Sparkles, Trash2, Upload, Wand2, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { applyDocumentsToBrand, reprocessDocuments } from "../../actions";
 
 interface BrandDocument {
   id: string;
@@ -46,14 +48,28 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("pt-BR");
 }
 
+type ApplyResult =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "success"; updated: string[] }
+  | { status: "error"; message: string }
+  | { status: "nothing" };
+
 export function DocumentsTab({ brandId, workspaceId, initialDocuments }: DocumentsTabProps) {
+  const router = useRouter();
   const [documents, setDocuments] = useState(initialDocuments);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [applyResult, setApplyResult] = useState<ApplyResult>({ status: "idle" });
+  const [reprocessing, setReprocessing] = useState(false);
+  const [reprocessResult, setReprocessResult] = useState<{ processed: number; failed: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const hasExtracted = documents.some((d) => d.extracted_content !== null);
+  const unprocessedCount = documents.filter((d) => d.extracted_content === null).length;
+
   async function handleFile(file: File) {
-    setError(null);
+    setUploadError(null);
     setUploading(true);
 
     const fd = new FormData();
@@ -67,7 +83,7 @@ export function DocumentsTab({ brandId, workspaceId, initialDocuments }: Documen
       if (!res.ok) throw new Error(json.error ?? "Erro desconhecido");
       setDocuments((prev) => [json.document, ...prev]);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Falha no upload");
+      setUploadError(e instanceof Error ? e.message : "Falha no upload");
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -83,14 +99,40 @@ export function DocumentsTab({ brandId, workspaceId, initialDocuments }: Documen
     });
   }
 
+  async function handleApply() {
+    setApplyResult({ status: "loading" });
+    const result = await applyDocumentsToBrand(brandId);
+    if (result.error) {
+      setApplyResult({ status: "error", message: result.error });
+    } else if (result.updated.length === 0) {
+      setApplyResult({ status: "nothing" });
+    } else {
+      setApplyResult({ status: "success", updated: result.updated });
+    }
+  }
+
+  async function handleReprocess() {
+    setReprocessing(true);
+    setReprocessResult(null);
+    const result = await reprocessDocuments(brandId);
+    setReprocessing(false);
+    if (result.processed > 0) {
+      setReprocessResult(result);
+      router.refresh();
+    } else {
+      setReprocessResult(result);
+    }
+  }
+
   return (
     <Card>
       <CardContent className="space-y-4 pt-5">
+        {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium">Documentos de marca</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Envie manuais, estratégia de comunicação, identidade visual. A IA lê e extrai o contexto automaticamente para usar na geração de conteúdo.
+              Envie manuais, estratégia de comunicação, identidade visual. A IA extrai o contexto automaticamente.
             </p>
           </div>
           <Button
@@ -120,8 +162,108 @@ export function DocumentsTab({ brandId, workspaceId, initialDocuments }: Documen
           }}
         />
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
 
+        {/* Reprocess banner */}
+        {unprocessedCount > 0 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-amber-900">
+                {unprocessedCount === 1
+                  ? "1 documento ainda não foi analisado pela IA"
+                  : `${unprocessedCount} documentos ainda não foram analisados pela IA`}
+              </p>
+              <p className="mt-0.5 text-xs text-amber-700">
+                Agora que a API está configurada, clique para extrair o contexto.
+              </p>
+              {reprocessResult && (
+                <p className="mt-1 text-xs font-medium text-amber-800">
+                  {reprocessResult.processed > 0
+                    ? `✓ ${reprocessResult.processed} processado(s)${reprocessResult.failed > 0 ? ` · ${reprocessResult.failed} com falha` : ""}`
+                    : "Nenhum documento pôde ser processado."}
+                </p>
+              )}
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleReprocess}
+              disabled={reprocessing}
+              className="shrink-0 border-amber-300 text-amber-900 hover:bg-amber-100"
+            >
+              {reprocessing ? (
+                <><Loader2 className="mr-1.5 size-3.5 animate-spin" />Processando…</>
+              ) : (
+                <><RefreshCw className="mr-1.5 size-3.5" />Analisar agora</>
+              )}
+            </Button>
+          </div>
+        )}
+
+        {/* Apply to Brand Brain */}
+        {hasExtracted && (
+          <div className="rounded-lg border border-dashed p-3 space-y-2.5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium flex items-center gap-1.5">
+                  <Wand2 className="size-3.5 text-primary" />
+                  Aplicar ao Brand Brain
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Preenche automaticamente público-alvo, pilares, frases características e palavras proibidas com base nos documentos. Campos já preenchidos não são sobrescritos.
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleApply}
+                disabled={applyResult.status === "loading"}
+                className="shrink-0"
+              >
+                {applyResult.status === "loading" ? (
+                  <><Loader2 className="mr-1.5 size-3.5 animate-spin" />Aplicando…</>
+                ) : (
+                  "Aplicar"
+                )}
+              </Button>
+            </div>
+
+            {applyResult.status === "success" && (
+              <div className="flex items-start gap-2 rounded-md bg-green-50 border border-green-200 px-3 py-2">
+                <CheckCircle2 className="size-3.5 mt-0.5 shrink-0 text-green-600" />
+                <div>
+                  <p className="text-xs font-medium text-green-800">Campos preenchidos com sucesso</p>
+                  <ul className="mt-0.5 space-y-0.5">
+                    {applyResult.updated.map((u) => (
+                      <li key={u} className="text-xs text-green-700">· {u}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-1 text-[10px] text-green-600">Acesse a aba Tom de voz para revisar.</p>
+                </div>
+              </div>
+            )}
+
+            {applyResult.status === "nothing" && (
+              <div className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2">
+                <CheckCircle2 className="size-3.5 shrink-0 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">
+                  Nenhum campo novo para preencher — o Brand Brain já está atualizado com estas informações.
+                </p>
+              </div>
+            )}
+
+            {applyResult.status === "error" && (
+              <div className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2">
+                <AlertCircle className="size-3.5 shrink-0 text-destructive" />
+                <p className="text-xs text-destructive">{applyResult.message}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Empty state */}
         {documents.length === 0 && !uploading && (
           <div className="rounded-lg border border-dashed p-8 text-center">
             <FileText className="mx-auto mb-2 size-7 text-muted-foreground/30" />
@@ -130,6 +272,7 @@ export function DocumentsTab({ brandId, workspaceId, initialDocuments }: Documen
           </div>
         )}
 
+        {/* Document list */}
         <div className="space-y-3">
           {documents.map((doc) => {
             const extracted = parseExtracted(doc.extracted_content);
@@ -190,8 +333,8 @@ export function DocumentsTab({ brandId, workspaceId, initialDocuments }: Documen
                 )}
 
                 {doc.extracted_content === null && (
-                  <p className="text-xs text-muted-foreground italic px-1">
-                    Extração de contexto não disponível (adicione a chave Anthropic para ativar).
+                  <p className="text-xs text-amber-600 italic px-1">
+                    Aguardando análise da IA…
                   </p>
                 )}
               </div>

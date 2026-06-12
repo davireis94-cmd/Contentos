@@ -8,16 +8,20 @@ interface TagInputProps {
   name: string;
   defaultValue?: string[];
   placeholder?: string;
+  hint?: string;
 }
 
-export function TagInput({ name, defaultValue = [], placeholder }: TagInputProps) {
+export function TagInput({ name, defaultValue = [], placeholder, hint }: TagInputProps) {
   const [tags, setTags] = useState<string[]>(defaultValue);
   const [draft, setDraft] = useState("");
 
-  function addTag() {
-    const value = draft.trim();
-    if (!value || tags.includes(value)) return;
-    setTags([...tags, value]);
+  function commit(raw: string) {
+    const parts = raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && !tags.includes(s));
+    if (parts.length === 0) return;
+    setTags((prev) => [...prev, ...parts]);
     setDraft("");
   }
 
@@ -28,14 +32,26 @@ export function TagInput({ name, defaultValue = [], placeholder }: TagInputProps
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") {
+          if (e.key === "Enter" || e.key === ",") {
             e.preventDefault();
-            addTag();
+            commit(draft);
+          }
+          if (e.key === "Backspace" && draft === "" && tags.length > 0) {
+            setTags((prev) => prev.slice(0, -1));
           }
         }}
-        onBlur={addTag}
+        onBlur={() => commit(draft)}
+        onPaste={(e) => {
+          // Auto-split pasted comma-separated text
+          const text = e.clipboardData.getData("text");
+          if (text.includes(",")) {
+            e.preventDefault();
+            commit(draft + text);
+          }
+        }}
         placeholder={placeholder ?? "Digite e pressione Enter"}
       />
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {tags.map((tag) => (
