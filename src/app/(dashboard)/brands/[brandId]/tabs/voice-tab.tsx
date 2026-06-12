@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TagInput } from "@/components/brand/tag-input";
+import { VoiceAnalyzer } from "@/components/brand/voice-analyzer";
 import { updateVoice } from "../../actions";
 
 interface VoiceTabProps {
@@ -32,7 +33,9 @@ const TONES = [
 
 export function VoiceTab({ brandId, voice }: VoiceTabProps) {
   return (
-    <Card>
+    <>
+      <VoiceAnalyzer brandId={brandId} />
+      <Card>
       <CardContent className="pt-5">
         <form action={updateVoice} className="space-y-5">
           <input type="hidden" name="brandId" value={brandId} />
@@ -101,5 +104,6 @@ export function VoiceTab({ brandId, voice }: VoiceTabProps) {
         </form>
       </CardContent>
     </Card>
+    </>
   );
 }
