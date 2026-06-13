@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -513,27 +513,26 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
   const [saving, startSave] = useTransition();
   const [exporting, setExporting] = useState(false);
   const [exportIdx, setExportIdx] = useState<number | null>(null);
-  const exportContainerRef = useRef<HTMLDivElement>(null);
 
   async function handleExportPng() {
     setExporting(true);
     try {
-      const { default: html2canvas } = await import("html2canvas");
       for (let i = 0; i < slides.length; i++) {
         setExportIdx(i);
-        await new Promise((r) => setTimeout(r, 120));
-        if (!exportContainerRef.current) continue;
-        const canvas = await html2canvas(exportContainerRef.current, {
-          scale: 5,
-          useCORS: true,
-          backgroundColor: null,
-          logging: false,
+        const res = await fetch("/api/render/slide", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slide: slides[i], idx: i, total: slides.length }),
         });
+        if (!res.ok) continue;
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.download = `slide-${String(i + 1).padStart(2, "0")}.png`;
-        link.href = canvas.toDataURL("image/png");
+        link.href = url;
         link.click();
-        await new Promise((r) => setTimeout(r, 150));
+        URL.revokeObjectURL(url);
+        await new Promise((r) => setTimeout(r, 120));
       }
     } finally {
       setExportIdx(null);
@@ -779,24 +778,6 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
           )}
         </div>
       </div>
-      {/* Hidden export container — off-screen, captures slide at 216×270 then html2canvas scales ×5 → 1080×1350 */}
-      {exportIdx !== null && (
-        <div
-          ref={exportContainerRef}
-          aria-hidden
-          style={{
-            position: "fixed",
-            left: -9999,
-            top: 0,
-            width: 216,
-            height: 270,
-            zIndex: -1,
-            overflow: "hidden",
-          }}
-        >
-          <SlideVisual slide={slides[exportIdx]} idx={exportIdx} total={slides.length} />
-        </div>
-      )}
     </div>
   );
 }
