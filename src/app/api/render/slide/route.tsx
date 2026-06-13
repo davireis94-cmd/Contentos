@@ -24,6 +24,7 @@ interface SlideInput {
   subtitle?: string | null;
   body?: string | null;
   cta?: string | null;
+  imageUrl?: string | null;
 }
 
 function getLayout(body: string): string {
@@ -114,6 +115,100 @@ function renderSlide(slide: SlideInput, idx: number, total: number) {
   const layout = getLayout(body);
   const text = cleanBody(body);
   const isDark = layout === "dark" || layout === "dark-photo" || layout === "gradient";
+
+  // ── Imagem IA de fundo (Fase 2.2) — sobrepõe texto com overlay legível ──
+  if (slide.imageUrl) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+          width: W,
+          height: H,
+          position: "relative",
+          backgroundColor: B.darkBg,
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={slide.imageUrl}
+          width={W}
+          height={H}
+          style={{ position: "absolute", top: 0, left: 0, width: W, height: H, objectFit: "cover" }}
+        />
+        {/* Overlay gradiente para legibilidade do texto */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: W,
+            height: H,
+            background:
+              "linear-gradient(to bottom, rgba(24,14,12,0.05) 0%, rgba(24,14,12,0.45) 55%, rgba(24,14,12,0.92) 100%)",
+          }}
+        />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            position: "relative",
+            padding: "0 100px 200px",
+          }}
+        >
+          {slide.subtitle && (
+            <div
+              style={{
+                fontSize: 32,
+                fontFamily: "Inter",
+                fontWeight: 600,
+                letterSpacing: 6,
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.7)",
+                marginBottom: 36,
+              }}
+            >
+              {slide.subtitle}
+            </div>
+          )}
+          <div
+            style={{
+              fontSize: 88,
+              fontFamily: "Playfair",
+              fontWeight: 700,
+              color: "#fff",
+              lineHeight: 1.08,
+              marginBottom: 36,
+            }}
+          >
+            {slide.title}
+          </div>
+          {text && (
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {bodyLines(text)
+                .slice(0, 3)
+                .map((l, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      fontSize: 40,
+                      fontFamily: "Inter",
+                      color: "rgba(255,255,255,0.8)",
+                      lineHeight: 1.5,
+                      marginBottom: 12,
+                    }}
+                  >
+                    {l}
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+        <ProgressBar idx={idx} total={total} dark={true} />
+      </div>
+    );
+  }
 
   const tag = (color: string) =>
     slide.subtitle ? (

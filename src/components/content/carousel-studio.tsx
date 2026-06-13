@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { Slide } from "@/lib/validations/generation";
 import { updateSlides } from "@/app/(dashboard)/content/[pieceId]/actions";
+import { IMAGE_MODEL_DEFS } from "@/lib/images/models";
 
 // ── Slide parsing helpers ──────────────────────────────────────────────────
 
@@ -169,6 +170,56 @@ function SlideVisual({
         {slide.subtitle ?? "IA aplicada a negócios"}
       </div>
     ) : null;
+
+  // ── imagem IA de fundo (preview) ──
+  if (slide.imageUrl) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          position: "relative",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+          background: B.darkBg,
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={slide.imageUrl}
+          alt=""
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "linear-gradient(to bottom,rgba(24,14,12,0.05) 0%,rgba(24,14,12,0.45) 55%,rgba(24,14,12,0.92) 100%)",
+          }}
+        />
+        <div style={{ position: "relative", zIndex: 2, padding: "0 20px 40px" }}>
+          {slide.subtitle && (
+            <div style={{ fontSize: 7, fontWeight: 600, letterSpacing: "1.5px", textTransform: "uppercase", color: "rgba(255,255,255,0.7)", marginBottom: 8 }}>
+              {slide.subtitle}
+            </div>
+          )}
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.12, marginBottom: 6, fontFamily: "Georgia,serif" }}>
+            {slide.title}
+          </div>
+          {text && (
+            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.8)", lineHeight: 1.5 }}>
+              {text.slice(0, 90)}
+            </div>
+          )}
+        </div>
+        {progressBar}
+        {swipeHint}
+      </div>
+    );
+  }
 
   // ── dark-photo ──
   if (layout === "dark-photo") {
@@ -513,6 +564,50 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
   const [saving, startSave] = useTransition();
   const [exporting, setExporting] = useState(false);
   const [exportIdx, setExportIdx] = useState<number | null>(null);
+  const [imgModel, setImgModel] = useState(IMAGE_MODEL_DEFS[0].key);
+  const [genImg, setGenImg] = useState(false);
+  const [imgError, setImgError] = useState("");
+
+  const currentSlide = slides[current];
+
+  async function handleGenerateImage() {
+    setGenImg(true);
+    setImgError("");
+    try {
+      const res = await fetch("/api/images/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pieceId,
+          slideIndex: currentSlide.index,
+          model: imgModel,
+          topic: currentSlide.title,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.imageUrl) {
+        const next = slides.map((s) =>
+          s.index === currentSlide.index ? { ...s, imageUrl: data.imageUrl as string } : s
+        );
+        onSlidesChange(next);
+        startSave(() => void updateSlides(pieceId, next));
+      } else {
+        setImgError(data.error ?? "Falha ao gerar imagem");
+      }
+    } catch {
+      setImgError("Erro de conexão");
+    } finally {
+      setGenImg(false);
+    }
+  }
+
+  function handleRemoveImage() {
+    const next = slides.map((s) =>
+      s.index === currentSlide.index ? { ...s, imageUrl: undefined } : s
+    );
+    onSlidesChange(next);
+    startSave(() => void updateSlides(pieceId, next));
+  }
 
   async function handleExportPng() {
     setExporting(true);
@@ -539,8 +634,6 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
       setExporting(false);
     }
   }
-
-  const currentSlide = slides[current];
 
   function goTo(idx: number) {
     const clamped = Math.max(0, Math.min(slides.length - 1, idx));
@@ -774,6 +867,83 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
               {currentSlide.cta && (
                 <FieldBlock label="CTA" value={currentSlide.cta} mono={false} highlight />
               )}
+
+              {/* ── Imagem de fundo IA ── */}
+              <div className="rounded-lg border bg-card p-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Image className="size-3.5 text-primary" />
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    Imagem de fundo (IA)
+                  </p>
+                </div>
+
+                {currentSlide.imageUrl ? (
+                  <div className="space-y-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={currentSlide.imageUrl}
+                      alt=""
+                      className="w-full h-24 object-cover rounded-md border"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 text-xs"
+                        onClick={() => void handleGenerateImage()}
+                        disabled={genImg}
+                      >
+                        {genImg ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
+                        Gerar outra
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={handleRemoveImage} disabled={genImg}>
+                        <X className="size-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      Gera um fundo fotográfico no estilo da marca e compõe o texto por cima.
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {IMAGE_MODEL_DEFS.map((m) => (
+                        <button
+                          key={m.key}
+                          onClick={() => setImgModel(m.key)}
+                          title={m.hint}
+                          className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${
+                            imgModel === m.key
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted text-muted-foreground hover:bg-muted/80"
+                          }`}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                    <Button
+                      size="sm"
+                      className="w-full text-xs"
+                      onClick={() => void handleGenerateImage()}
+                      disabled={genImg}
+                    >
+                      {genImg ? (
+                        <>
+                          <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                          Gerando imagem…
+                        </>
+                      ) : (
+                        <>
+                          <Image className="mr-1.5 size-3.5" />
+                          Gerar fundo IA
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+                {imgError && <p className="text-[11px] text-destructive mt-2">{imgError}</p>}
+              </div>
             </div>
           )}
         </div>

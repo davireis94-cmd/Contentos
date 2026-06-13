@@ -28,6 +28,8 @@ export const slideSchema = z.object({
   subtitle: z.string().optional(),
   body: z.string().min(1),
   cta: z.string().optional(),
+  // URL de imagem de fundo gerada por IA (Fase 2.2). Opcional e persistida no slide.
+  imageUrl: z.string().optional(),
 });
 
 /**

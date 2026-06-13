@@ -1,0 +1,103 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
+import { buildImagePrompt, type BrandImageContext } from "@/lib/images/prompt";
+import { generateImage } from "@/lib/images/generate";
+import { getImageModel } from "@/lib/images/models";
+import { trackUsage } from "@/lib/billing/track";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+export async function POST(request: NextRequest) {
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll: () => request.cookies.getAll(), setAll: () => {} } }
+  );
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+  const { pieceId, slideIndex, model, topic } = (await request.json()) as {
+    pieceId: string;
+    slideIndex: number;
+    model: string;
+    topic?: string;
+  };
+
+  if (!pieceId || slideIndex == null || !model) {
+    return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
+  }
+
+  // Busca a peça + marca para condicionar o prompt
+  const { data: piece } = await supabase
+    .from("content_pieces")
+    .select("brand_id, workspace_id, title, slides")
+    .eq("id", pieceId)
+    .single();
+  if (!piece) return NextResponse.json({ error: "Conteúdo não encontrado" }, { status: 404 });
+
+  const [{ data: brand }, { data: voice }] = await Promise.all([
+    supabase.from("brands").select("description, identity").eq("id", piece.brand_id).single(),
+    supabase
+      .from("brand_voice")
+      .select("tone, target_audience")
+      .eq("brand_id", piece.brand_id)
+      .maybeSingle(),
+  ]);
+
+  const identity = (brand?.identity ?? {}) as { colors?: { hex: string; role?: string }[] };
+  const brandCtx: BrandImageContext = {
+    description: brand?.description ?? null,
+    colors: identity.colors,
+    tone: voice?.tone ?? null,
+    audience: voice?.target_audience ?? null,
+  };
+
+  const slideTopic = topic?.trim() || (piece.title as string) || "tema do post";
+  const prompt = buildImagePrompt(slideTopic, brandCtx);
+
+  // Gera no Replicate
+  const result = await generateImage(model, prompt);
+  if (result.error || !result.url) {
+    return NextResponse.json({ error: result.error ?? "Falha na geração" }, { status: 502 });
+  }
+
+  // Persiste no Storage (URL do Replicate expira) via service role
+  let publicUrl = result.url;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (serviceKey) {
+    try {
+      const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey, {
+        auth: { persistSession: false },
+      });
+      const imgRes = await fetch(result.url);
+      const bytes = new Uint8Array(await imgRes.arrayBuffer());
+      const path = `${piece.workspace_id}/${pieceId}/slide-${slideIndex}-${Date.now()}.png`;
+      const { error: upErr } = await admin.storage
+        .from("slide-images")
+        .upload(path, bytes, { contentType: "image/png", upsert: true });
+      if (!upErr) {
+        const { data: pub } = admin.storage.from("slide-images").getPublicUrl(path);
+        if (pub?.publicUrl) publicUrl = pub.publicUrl;
+      }
+    } catch (err) {
+      console.error("[images/generate] storage upload failed, using provider URL:", err);
+    }
+  }
+
+  // Registra custo + créditos
+  await trackUsage({
+    supabase,
+    workspaceId: piece.workspace_id,
+    userId: user.id,
+    operation: "image_ai",
+    model: getImageModel(model).key,
+    units: 1,
+    unitType: "image",
+    metadata: { piece_id: pieceId, slide_index: slideIndex },
+  });
+
+  return NextResponse.json({ imageUrl: publicUrl });
+}
