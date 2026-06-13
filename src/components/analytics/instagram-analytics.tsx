@@ -1,0 +1,224 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import {
+  Heart,
+  MessageCircle,
+  Eye,
+  Bookmark,
+  Users,
+  Grid3x3,
+  Loader2,
+  RefreshCw,
+  Camera,
+  ExternalLink,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+interface PostMetric {
+  id: string;
+  caption: string;
+  mediaType: string;
+  permalink: string;
+  timestamp: string;
+  likes: number;
+  comments: number;
+  reach: number;
+  saved: number;
+}
+
+interface Insights {
+  followersCount: number;
+  mediaCount: number;
+  username: string;
+  profilePicture: string | null;
+  posts: PostMetric[];
+}
+
+function compact(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
+}
+
+interface Props {
+  isConnected: boolean;
+  username: string | null;
+  justConnected: boolean;
+  connectError: string | null;
+}
+
+export function InstagramAnalytics({ isConnected, username, justConnected, connectError }: Props) {
+  const [loading, setLoading] = useState(isConnected);
+  const [insights, setInsights] = useState<Insights | null>(null);
+  const [error, setError] = useState<string | null>(connectError);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/social/instagram/insights");
+      const data = await res.json();
+      if (data.error) setError(data.error);
+      else if (data.insights) setInsights(data.insights);
+    } catch {
+      setError("Erro ao buscar métricas.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isConnected) void load();
+  }, [isConnected, load]);
+
+  async function handleDisconnect() {
+    setDisconnecting(true);
+    try {
+      await fetch("/api/social/instagram/disconnect", { method: "POST" });
+      window.location.href = "/analytics";
+    } finally {
+      setDisconnecting(false);
+    }
+  }
+
+  // ── Não conectado ──
+  if (!isConnected) {
+    return (
+      <div className="rounded-xl border bg-card p-8 text-center max-w-xl mx-auto">
+        <div className="flex justify-center mb-4">
+          <div className="flex items-center justify-center size-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500">
+            <Camera className="size-7 text-white" />
+          </div>
+        </div>
+        <h2 className="text-lg font-semibold mb-2">Conecte seu Instagram</h2>
+        <p className="text-sm text-muted-foreground mb-1">
+          Veja curtidas, alcance, salvamentos e seguidores direto aqui — e o app vai
+          aprender o que mais funciona com o seu público.
+        </p>
+        <p className="text-xs text-muted-foreground/70 mb-5">
+          Grátis. Seu Instagram precisa ser conta Profissional/Comercial ligada a uma página do Facebook.
+        </p>
+        {connectError && (
+          <p className="text-xs text-destructive mb-4">{decodeURIComponent(connectError)}</p>
+        )}
+        <a
+          href="/api/social/instagram/connect"
+          className="inline-flex items-center gap-2 rounded-md bg-gradient-to-r from-purple-500 to-pink-500 px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+        >
+          <Camera className="size-4" />
+          Conectar Instagram
+        </a>
+      </div>
+    );
+  }
+
+  // ── Conectado ──
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          {insights?.profilePicture ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={insights.profilePicture} alt="" className="size-10 rounded-full object-cover" />
+          ) : (
+            <div className="flex items-center justify-center size-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500">
+              <Camera className="size-5 text-white" />
+            </div>
+          )}
+          <div>
+            <p className="font-semibold text-sm">@{insights?.username ?? username}</p>
+            <p className="text-xs text-muted-foreground">Instagram conectado</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => void load()} disabled={loading}>
+            <RefreshCw className={`size-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+            Atualizar
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => void handleDisconnect()} disabled={disconnecting}>
+            {disconnecting ? <Loader2 className="size-3.5 animate-spin" /> : "Desconectar"}
+          </Button>
+        </div>
+      </div>
+
+      {justConnected && (
+        <p className="text-sm text-emerald-600 font-medium">✓ Instagram conectado com sucesso!</p>
+      )}
+      {error && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+          <p className="text-sm text-destructive">{decodeURIComponent(error)}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Se o erro persistir, o acesso pode ter expirado — clique em Desconectar e conecte de novo.
+          </p>
+        </div>
+      )}
+
+      {loading && !insights ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : insights ? (
+        <>
+          {/* Cards de visão geral */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <StatCard icon={Users} label="Seguidores" value={compact(insights.followersCount)} />
+            <StatCard icon={Grid3x3} label="Publicações" value={compact(insights.mediaCount)} />
+            <StatCard
+              icon={Eye}
+              label="Alcance (últimos posts)"
+              value={compact(insights.posts.reduce((s, p) => s + p.reach, 0))}
+            />
+          </div>
+
+          {/* Posts */}
+          <div className="rounded-xl border bg-card overflow-hidden">
+            <div className="px-5 py-3.5 border-b">
+              <h3 className="text-sm font-semibold">Posts recentes</h3>
+            </div>
+            {insights.posts.length === 0 ? (
+              <p className="px-5 py-10 text-center text-sm text-muted-foreground">
+                Nenhum post encontrado ainda.
+              </p>
+            ) : (
+              <div className="divide-y">
+                {insights.posts.map((p) => (
+                  <div key={p.id} className="flex items-center gap-4 px-5 py-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm line-clamp-1">{p.caption || "(sem legenda)"}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {new Date(p.timestamp).toLocaleDateString("pt-BR")} · {p.mediaType.toLowerCase()}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
+                      <span className="flex items-center gap-1"><Heart className="size-3" />{compact(p.likes)}</span>
+                      <span className="flex items-center gap-1"><MessageCircle className="size-3" />{compact(p.comments)}</span>
+                      <span className="flex items-center gap-1"><Eye className="size-3" />{compact(p.reach)}</span>
+                      <span className="flex items-center gap-1"><Bookmark className="size-3" />{compact(p.saved)}</span>
+                      <a href={p.permalink} target="_blank" rel="noopener noreferrer" className="p-1 hover:text-foreground">
+                        <ExternalLink className="size-3" />
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function StatCard({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: string }) {
+  return (
+    <div className="rounded-xl border bg-card p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Icon className="size-4 text-muted-foreground" />
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
+      </div>
+      <p className="text-2xl font-bold">{value}</p>
+    </div>
+  );
+}

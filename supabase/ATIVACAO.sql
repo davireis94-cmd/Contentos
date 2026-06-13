@@ -87,3 +87,28 @@ drop policy if exists "slide_images_public_read" on storage.objects;
 create policy "slide_images_public_read"
   on storage.objects for select
   using (bucket_id = 'slide-images');
+
+-- 4) Conexões sociais (Instagram — métricas / Fase 4)
+create table if not exists social_connections (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references workspaces(id) on delete cascade,
+  platform text not null,
+  external_id text not null,
+  username text,
+  access_token text not null,
+  token_expires_at timestamptz,
+  meta jsonb not null default '{}'::jsonb,
+  connected_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (workspace_id, platform)
+);
+alter table social_connections enable row level security;
+drop policy if exists "select_social_connections" on social_connections;
+create policy "select_social_connections"
+  on social_connections for select
+  using (workspace_id in (select workspace_id from workspace_members where user_id = auth.uid()));
+drop policy if exists "delete_social_connections" on social_connections;
+create policy "delete_social_connections"
+  on social_connections for delete
+  using (workspace_id in (select workspace_id from workspace_members where user_id = auth.uid()));

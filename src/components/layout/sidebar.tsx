@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BarChart3,
   Calendar,
   Coins,
   Globe,
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
   { href: "/calendar", activePath: "/calendar", label: "Calendário", icon: Calendar },
   { href: "/templates", activePath: "/templates", label: "Templates", icon: LayoutGrid },
   { href: "/library", activePath: "/library", label: "Biblioteca", icon: Library },
+  { href: "/analytics", activePath: "/analytics", label: "Métricas", icon: BarChart3 },
   { href: "/usage", activePath: "/usage", label: "Créditos & Uso", icon: Coins },
 ];
 
