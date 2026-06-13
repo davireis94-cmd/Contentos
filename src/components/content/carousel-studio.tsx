@@ -9,11 +9,19 @@ import {
   Image,
   Loader2,
   Pencil,
+  Send,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import type { Slide } from "@/lib/validations/generation";
 import { updateSlides } from "@/app/(dashboard)/content/[pieceId]/actions";
 import { IMAGE_MODEL_DEFS } from "@/lib/images/models";
@@ -635,6 +643,46 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
     }
   }
 
+  // ── Publicação (Ayrshare) ──
+  const [pubPlatforms, setPubPlatforms] = useState<string[]>(["instagram"]);
+  const [pubSchedule, setPubSchedule] = useState("");
+  const [publishing, setPublishing] = useState(false);
+  const [pubMsg, setPubMsg] = useState("");
+
+  function togglePlatform(p: string) {
+    setPubPlatforms((prev) => (prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]));
+  }
+
+  async function handlePublish() {
+    if (pubPlatforms.length === 0) {
+      setPubMsg("Escolha ao menos uma rede.");
+      return;
+    }
+    setPublishing(true);
+    setPubMsg("");
+    try {
+      const res = await fetch("/api/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pieceId,
+          platforms: pubPlatforms,
+          scheduleDate: pubSchedule ? new Date(pubSchedule).toISOString() : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPubMsg(pubSchedule ? "✓ Agendado com sucesso!" : "✓ Publicado com sucesso!");
+      } else {
+        setPubMsg(data.error ?? "Falha ao publicar.");
+      }
+    } catch {
+      setPubMsg("Erro de conexão.");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
   function goTo(idx: number) {
     const clamped = Math.max(0, Math.min(slides.length - 1, idx));
     setCurrent(clamped);
@@ -694,6 +742,88 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
             <Download className="size-3.5" />
             Baixar HTML
           </a>
+
+          {/* Publicar */}
+          <Dialog>
+            <DialogTrigger asChild>
+              <button className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90">
+                <Send className="size-3.5" />
+                Publicar
+              </button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Publicar carrossel</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+                    Onde publicar
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { id: "instagram", label: "Instagram" },
+                      { id: "tiktok", label: "TikTok" },
+                      { id: "linkedin", label: "LinkedIn" },
+                      { id: "facebook", label: "Facebook" },
+                      { id: "x", label: "X" },
+                    ].map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => togglePlatform(p.id)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                          pubPlatforms.includes(p.id)
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80"
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+                    Agendar (opcional)
+                  </p>
+                  <Input
+                    type="datetime-local"
+                    value={pubSchedule}
+                    onChange={(e) => setPubSchedule(e.target.value)}
+                    className="text-sm"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Deixe em branco para publicar agora.
+                  </p>
+                </div>
+
+                <Button onClick={() => void handlePublish()} disabled={publishing} className="w-full">
+                  {publishing ? (
+                    <>
+                      <Loader2 className="mr-1.5 size-4 animate-spin" />
+                      Enviando…
+                    </>
+                  ) : (
+                    <>
+                      <Send className="mr-1.5 size-4" />
+                      {pubSchedule ? "Agendar" : "Publicar agora"}
+                    </>
+                  )}
+                </Button>
+
+                {pubMsg && (
+                  <p
+                    className={`text-xs ${
+                      pubMsg.startsWith("✓") ? "text-emerald-600 font-medium" : "text-destructive"
+                    }`}
+                  >
+                    {pubMsg}
+                  </p>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
