@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import {
   ChevronLeft,
   ChevronRight,
   Check,
   Download,
+  Image,
   Loader2,
   Pencil,
   X,
@@ -510,6 +511,35 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Slide>(() => slides[0]);
   const [saving, startSave] = useTransition();
+  const [exporting, setExporting] = useState(false);
+  const [exportIdx, setExportIdx] = useState<number | null>(null);
+  const exportContainerRef = useRef<HTMLDivElement>(null);
+
+  async function handleExportPng() {
+    setExporting(true);
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      for (let i = 0; i < slides.length; i++) {
+        setExportIdx(i);
+        await new Promise((r) => setTimeout(r, 120));
+        if (!exportContainerRef.current) continue;
+        const canvas = await html2canvas(exportContainerRef.current, {
+          scale: 5,
+          useCORS: true,
+          backgroundColor: null,
+          logging: false,
+        });
+        const link = document.createElement("a");
+        link.download = `slide-${String(i + 1).padStart(2, "0")}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+        await new Promise((r) => setTimeout(r, 150));
+      }
+    } finally {
+      setExportIdx(null);
+      setExporting(false);
+    }
+  }
 
   const currentSlide = slides[current];
 
@@ -551,14 +581,28 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
           </p>
           {saving && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
         </div>
-        <a
-          href={`/api/generate/carousel?pieceId=${pieceId}`}
-          download
-          className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
-        >
-          <Download className="size-3.5" />
-          Baixar Carrossel HTML
-        </a>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => void handleExportPng()}
+            disabled={exporting}
+            className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {exporting ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Image className="size-3.5" />
+            )}
+            {exporting ? `Exportando ${(exportIdx ?? 0) + 1}/${slides.length}…` : "Exportar PNG"}
+          </button>
+          <a
+            href={`/api/generate/carousel?pieceId=${pieceId}`}
+            download
+            className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
+          >
+            <Download className="size-3.5" />
+            Baixar HTML
+          </a>
+        </div>
       </div>
 
       <div className="flex flex-col lg:flex-row">
@@ -735,6 +779,24 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
           )}
         </div>
       </div>
+      {/* Hidden export container — off-screen, captures slide at 216×270 then html2canvas scales ×5 → 1080×1350 */}
+      {exportIdx !== null && (
+        <div
+          ref={exportContainerRef}
+          aria-hidden
+          style={{
+            position: "fixed",
+            left: -9999,
+            top: 0,
+            width: 216,
+            height: 270,
+            zIndex: -1,
+            overflow: "hidden",
+          }}
+        >
+          <SlideVisual slide={slides[exportIdx]} idx={exportIdx} total={slides.length} />
+        </div>
+      )}
     </div>
   );
 }
