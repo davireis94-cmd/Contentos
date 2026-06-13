@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Calendar,
+  Coins,
   Globe,
   Home,
   LayoutGrid,
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { href: "/calendar", activePath: "/calendar", label: "Calendário", icon: Calendar },
   { href: "/templates", activePath: "/templates", label: "Templates", icon: LayoutGrid },
   { href: "/library", activePath: "/library", label: "Biblioteca", icon: Library },
+  { href: "/usage", activePath: "/usage", label: "Créditos & Uso", icon: Coins },
 ];
 
 interface SidebarProps {
