@@ -6,15 +6,15 @@ import { BriefForm } from "@/components/generate/brief-form";
 export default async function GeneratePage({
   searchParams,
 }: {
-  searchParams: Promise<{ brandId?: string; ref?: string; topic?: string; ext?: string }>;
+  searchParams: Promise<{ brandId?: string; ref?: string; topic?: string; ext?: string; trendId?: string }>;
 }) {
   const { user, workspace, supabase } = await getSessionContext();
   if (!user) redirect("/login");
   if (!workspace) redirect("/onboarding");
 
-  const { brandId, ref, topic, ext } = await searchParams;
+  const { brandId, ref, topic, ext, trendId } = await searchParams;
 
-  const [{ data: brands }, { data: recentPieces }] = await Promise.all([
+  const [{ data: brands }, { data: recentPieces }, trendResult] = await Promise.all([
     supabase
       .from("brands")
       .select("id, name, logo_url")
@@ -26,7 +26,16 @@ export default async function GeneratePage({
       .eq("workspace_id", workspace.id)
       .order("created_at", { ascending: false })
       .limit(30),
+    trendId
+      ? supabase
+          .from("benchmark_content")
+          .select("title, description, notes, transcript, source_url, platform, format")
+          .eq("id", trendId)
+          .single()
+      : Promise.resolve({ data: null }),
   ]);
+
+  const trend = trendResult.data;
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -46,8 +55,9 @@ export default async function GeneratePage({
             : (p.brands as { name: string } | null)?.name ?? null,
         }))}
         defaultRefId={ref}
-        defaultTopic={topic}
+        defaultTopic={topic ?? trend?.title ?? undefined}
         defaultExt={!!ext}
+        trendContext={trend ?? undefined}
       />
     </div>
   );

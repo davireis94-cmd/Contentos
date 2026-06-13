@@ -39,6 +39,16 @@ interface RecentPiece {
   brandName: string | null;
 }
 
+interface TrendContext {
+  title: string;
+  description?: string | null;
+  notes?: string | null;
+  transcript?: string | null;
+  source_url?: string | null;
+  platform?: string | null;
+  format?: string | null;
+}
+
 interface Props {
   brands: Brand[];
   defaultBrandId?: string;
@@ -46,6 +56,7 @@ interface Props {
   defaultRefId?: string;
   defaultTopic?: string;
   defaultExt?: boolean;
+  trendContext?: TrendContext;
 }
 
 const PLATFORMS = [
@@ -118,7 +129,7 @@ const TOOL_OPTIONS: Record<string, Record<string, string[]>> = {
   },
 };
 
-export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, defaultTopic, defaultExt }: Props) {
+export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, defaultTopic, defaultExt, trendContext }: Props) {
   const [generationState, setGenerationState] = useState<GenerationState>({
     status: "idle",
   });
@@ -189,6 +200,19 @@ export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, 
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
 
+    const trendExternalRef = trendContext
+      ? [
+          `Vídeo/post de referência: "${trendContext.title}"`,
+          trendContext.description ? `Descrição: ${trendContext.description}` : null,
+          trendContext.notes ? `Por que funciona: ${trendContext.notes}` : null,
+          trendContext.transcript
+            ? `Transcrição do vídeo:\n${trendContext.transcript.slice(0, 4000)}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join("\n\n")
+      : undefined;
+
     const input = {
       brandId: fd.get("brandId") as string,
       platform,
@@ -207,6 +231,7 @@ export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, 
         : undefined,
       referenceIds: selectedRefs.length > 0 ? selectedRefs : undefined,
       importedRef: importedRef ?? undefined,
+      externalRef: trendExternalRef,
     };
 
     setGenerationState({ status: "running", messages: ["Iniciando..."] });
@@ -285,6 +310,26 @@ export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, 
       <Card>
         <CardContent className="pt-5">
           <form onSubmit={handleSubmit} className="space-y-5">
+
+            {/* Trend banner */}
+            {trendContext && (
+              <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3.5 py-3 text-sm dark:border-emerald-800 dark:bg-emerald-950/30">
+                <span className="text-emerald-600 shrink-0 mt-0.5">✦</span>
+                <div className="min-w-0">
+                  <p className="font-medium text-emerald-800 dark:text-emerald-300 text-xs">
+                    Gerando conteúdo inspirado em:
+                  </p>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400 truncate">
+                    {trendContext.title}
+                  </p>
+                  {trendContext.transcript && (
+                    <p className="text-[10px] text-emerald-600/70 mt-0.5">
+                      Transcrição do vídeo incluída como contexto
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Brand */}
             <div className="space-y-2">
