@@ -11,7 +11,8 @@ import {
   Loader2,
   RefreshCw,
   Camera,
-  ExternalLink,
+  Play,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -19,6 +20,7 @@ interface PostMetric {
   id: string;
   caption: string;
   mediaType: string;
+  mediaUrl: string | null;
   permalink: string;
   timestamp: string;
   likes: number;
@@ -172,7 +174,7 @@ export function InstagramAnalytics({ isConnected, username, justConnected, conne
             />
           </div>
 
-          {/* Posts */}
+          {/* Posts — grade estilo feed */}
           <div className="rounded-xl border bg-card overflow-hidden">
             <div className="px-5 py-3.5 border-b">
               <h3 className="text-sm font-semibold">Posts recentes</h3>
@@ -182,25 +184,46 @@ export function InstagramAnalytics({ isConnected, username, justConnected, conne
                 Nenhum post encontrado ainda.
               </p>
             ) : (
-              <div className="divide-y">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1 p-1">
                 {insights.posts.map((p) => (
-                  <div key={p.id} className="flex items-center gap-4 px-5 py-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm line-clamp-1">{p.caption || "(sem legenda)"}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {new Date(p.timestamp).toLocaleDateString("pt-BR")} · {p.mediaType.toLowerCase()}
-                      </p>
+                  <a
+                    key={p.id}
+                    href={p.permalink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group relative aspect-square overflow-hidden bg-muted"
+                    title={p.caption || "(sem legenda)"}
+                  >
+                    {p.mediaUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={p.mediaUrl}
+                        alt={p.caption || "Post do Instagram"}
+                        className="size-full object-cover transition-transform duration-200 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex size-full items-center justify-center">
+                        <Camera className="size-6 text-muted-foreground/40" />
+                      </div>
+                    )}
+                    {p.mediaType === "VIDEO" && (
+                      <Play className="absolute right-1.5 top-1.5 size-4 text-white drop-shadow" fill="white" />
+                    )}
+                    {p.mediaType === "CAROUSEL_ALBUM" && (
+                      <Layers className="absolute right-1.5 top-1.5 size-4 text-white drop-shadow" />
+                    )}
+                    {/* Overlay com métricas ao passar o mouse */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black/55 text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                      <div className="flex items-center gap-3 text-xs font-semibold">
+                        <span className="flex items-center gap-1"><Heart className="size-3.5" fill="white" />{compact(p.likes)}</span>
+                        <span className="flex items-center gap-1"><MessageCircle className="size-3.5" fill="white" />{compact(p.comments)}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-[11px] text-white/90">
+                        <span className="flex items-center gap-1"><Eye className="size-3" />{compact(p.reach)}</span>
+                        <span className="flex items-center gap-1"><Bookmark className="size-3" />{compact(p.saved)}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
-                      <span className="flex items-center gap-1"><Heart className="size-3" />{compact(p.likes)}</span>
-                      <span className="flex items-center gap-1"><MessageCircle className="size-3" />{compact(p.comments)}</span>
-                      <span className="flex items-center gap-1"><Eye className="size-3" />{compact(p.reach)}</span>
-                      <span className="flex items-center gap-1"><Bookmark className="size-3" />{compact(p.saved)}</span>
-                      <a href={p.permalink} target="_blank" rel="noopener noreferrer" className="p-1 hover:text-foreground">
-                        <ExternalLink className="size-3" />
-                      </a>
-                    </div>
-                  </div>
+                  </a>
                 ))}
               </div>
             )}

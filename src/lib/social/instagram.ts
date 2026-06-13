@@ -137,6 +137,7 @@ export interface IgPostMetric {
   id: string;
   caption: string;
   mediaType: string;
+  mediaUrl: string | null;
   permalink: string;
   timestamp: string;
   likes: number;
@@ -170,13 +171,15 @@ export async function fetchInsights(igUserId: string, token: string): Promise<Ig
       id: string;
       caption?: string;
       media_type: string;
+      media_url?: string;
+      thumbnail_url?: string;
       permalink: string;
       timestamp: string;
       like_count?: number;
       comments_count?: number;
     }[];
   }>(`/${igUserId}/media`, {
-    fields: "id,caption,media_type,permalink,timestamp,like_count,comments_count",
+    fields: "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count",
     limit: "12",
     access_token: token,
   });
@@ -202,6 +205,7 @@ export async function fetchInsights(igUserId: string, token: string): Promise<Ig
       id: m.id,
       caption: m.caption?.slice(0, 120) ?? "",
       mediaType: m.media_type,
+      mediaUrl: m.thumbnail_url ?? m.media_url ?? null,
       permalink: m.permalink,
       timestamp: m.timestamp,
       likes: m.like_count ?? 0,
