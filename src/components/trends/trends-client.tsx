@@ -3,9 +3,14 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Eye,
   ExternalLink,
+  Flame,
+  Heart,
   Loader2,
+  MessageCircle,
   Plus,
+  RefreshCw,
   Search,
   Sparkles,
   Trash2,
@@ -33,6 +38,15 @@ import {
 } from "@/components/ui/select";
 import { addTrend, deleteTrend } from "@/app/(dashboard)/trends/actions";
 
+export interface TrendMetrics {
+  views?: number;
+  likes?: number;
+  comments?: number;
+  ups?: number;
+  engagementRate?: number;
+  velocityPerHour?: number;
+}
+
 export interface Trend {
   id: string;
   title: string;
@@ -47,6 +61,17 @@ export interface Trend {
   added_by: string | null;
   workspace_id: string | null;
   created_at: string;
+  source: string; // 'manual' | 'youtube' | 'reddit'
+  niche: string | null;
+  author: string | null;
+  published_at: string | null;
+  metrics: TrendMetrics | null;
+}
+
+function formatCompact(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
 }
 
 const FORMAT_LABELS: Record<string, string> = {
@@ -63,6 +88,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   youtube: "YouTube",
   linkedin: "LinkedIn",
   x: "X",
+  reddit: "Reddit",
 };
 
 const PLATFORM_COLORS: Record<string, string> = {
@@ -71,6 +97,7 @@ const PLATFORM_COLORS: Record<string, string> = {
   youtube: "bg-red-500/10 text-red-600 border-red-200",
   linkedin: "bg-blue-500/10 text-blue-700 border-blue-200",
   x: "bg-slate-500/10 text-slate-600 border-slate-200",
+  reddit: "bg-orange-500/10 text-orange-600 border-orange-200",
 };
 
 // ── Add Trend Dialog ────────────────────────────────────────────────────────
@@ -346,6 +373,47 @@ function TrendCard({
       <div className="p-4">
         <p className="font-semibold text-sm leading-snug line-clamp-2 mb-2">{trend.title}</p>
 
+        {/* Metrics row (auto-fetched trends) */}
+        {trend.metrics && Object.keys(trend.metrics).length > 0 && (
+          <div className="flex flex-wrap items-center gap-3 mb-2.5 text-[11px] text-muted-foreground">
+            {trend.metrics.views != null && (
+              <span className="flex items-center gap-1">
+                <Eye className="size-3" />
+                {formatCompact(trend.metrics.views)}
+              </span>
+            )}
+            {trend.metrics.ups != null && (
+              <span className="flex items-center gap-1">
+                <Flame className="size-3 text-orange-500" />
+                {formatCompact(trend.metrics.ups)}
+              </span>
+            )}
+            {trend.metrics.likes != null && (
+              <span className="flex items-center gap-1">
+                <Heart className="size-3" />
+                {formatCompact(trend.metrics.likes)}
+              </span>
+            )}
+            {trend.metrics.comments != null && (
+              <span className="flex items-center gap-1">
+                <MessageCircle className="size-3" />
+                {formatCompact(trend.metrics.comments)}
+              </span>
+            )}
+            {trend.metrics.engagementRate != null && trend.metrics.engagementRate > 0 && (
+              <span className="flex items-center gap-1 font-medium text-emerald-600">
+                {trend.metrics.engagementRate.toFixed(1)}% eng.
+              </span>
+            )}
+            {trend.metrics.velocityPerHour != null && trend.metrics.velocityPerHour > 0 && (
+              <span className="flex items-center gap-1 font-medium text-primary">
+                <TrendingUp className="size-3" />
+                {formatCompact(trend.metrics.velocityPerHour)}/h
+              </span>
+            )}
+          </div>
+        )}
+
         {trend.topic_tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-3">
             {trend.topic_tags.slice(0, 4).map((tag) => (
@@ -407,11 +475,12 @@ function TrendCard({
 
 const FILTER_TABS = [
   { value: "all", label: "Todos" },
+  { value: "market", label: "🔥 Mercado" },
+  { value: "saved", label: "Minhas refs" },
+  { value: "youtube", label: "YouTube" },
+  { value: "reddit", label: "Reddit" },
   { value: "carousel", label: "Carrossel" },
   { value: "reel", label: "Reels" },
-  { value: "single", label: "Post" },
-  { value: "youtube", label: "YouTube" },
-  { value: "tiktok", label: "TikTok" },
 ];
 
 export function TrendsClient({
@@ -421,17 +490,36 @@ export function TrendsClient({
   trends: Trend[];
   currentUserId: string;
 }) {
+  const router = useRouter();
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState("");
+
+  async function handleSync() {
+    setSyncing(true);
+    setSyncMsg("");
+    try {
+      const res = await fetch("/api/trends/sync", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setSyncMsg(data.error ?? "Falha ao atualizar");
+      } else {
+        setSyncMsg(`${data.total} tendências atualizadas (YT ${data.youtube} · Reddit ${data.reddit})`);
+        router.refresh();
+      }
+    } catch {
+      setSyncMsg("Erro de conexão");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   const filtered = trends.filter((t) => {
-    if (filter !== "all") {
-      if (filter === "youtube" || filter === "tiktok") {
-        if (t.platform !== filter) return false;
-      } else {
-        if (t.format !== filter) return false;
-      }
-    }
+    if (filter === "market" && t.source === "manual") return false;
+    if (filter === "saved" && t.source !== "manual") return false;
+    if ((filter === "youtube" || filter === "reddit") && t.platform !== filter) return false;
+    if ((filter === "carousel" || filter === "reel") && t.format !== filter) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
       const matches =
@@ -473,9 +561,22 @@ export function TrendsClient({
               className="pl-8 h-8 text-xs"
             />
           </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void handleSync()}
+            disabled={syncing}
+            title="Buscar tendências do mercado agora"
+          >
+            <RefreshCw className={`size-3.5 ${syncing ? "animate-spin" : ""}`} />
+          </Button>
           <AddTrendDialog currentUserId={currentUserId} />
         </div>
       </div>
+
+      {syncMsg && (
+        <p className="text-xs text-muted-foreground -mt-2">{syncMsg}</p>
+      )}
 
       {/* Grid */}
       {filtered.length === 0 ? (
@@ -488,7 +589,7 @@ export function TrendsClient({
           </p>
           <p className="text-xs text-muted-foreground/60 mt-1">
             {trends.length === 0
-              ? "Adicione vídeos ou posts virais para usar como referência na geração."
+              ? 'Clique em atualizar (↻) para buscar tendências do mercado, ou adicione suas próprias referências.'
               : "Tente outro filtro ou busca."}
           </p>
         </div>

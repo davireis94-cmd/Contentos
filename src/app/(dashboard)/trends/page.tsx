@@ -12,7 +12,7 @@ export default async function TrendsPage() {
   // Fetch workspace trends + global (workspace_id is null) trends
   const { data: trends } = await supabase
     .from("benchmark_content")
-    .select("id, title, description, source_url, thumbnail_url, format, platform, topic_tags, notes, transcript, added_by, workspace_id, created_at")
+    .select("id, title, description, source_url, thumbnail_url, format, platform, topic_tags, notes, transcript, added_by, workspace_id, created_at, source, niche, author, published_at, metrics")
     .or(`workspace_id.eq.${workspace.id},workspace_id.is.null`)
     .order("is_featured", { ascending: false })
     .order("created_at", { ascending: false });
