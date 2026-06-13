@@ -530,6 +530,132 @@ function matchesNiche(trend: Trend, keywords: string[]): boolean {
   return keywords.some((k) => haystack.includes(k));
 }
 
+// ── Trend Topics (temas com IA) ──────────────────────────────────────────────
+
+interface TrendTopic {
+  title: string;
+  why: string;
+  angle: string;
+  heat: "alta" | "média" | "baixa";
+  trendIds: string[];
+}
+
+const HEAT_STYLES: Record<string, string> = {
+  alta: "bg-red-500/10 text-red-600 border-red-200",
+  "média": "bg-amber-500/10 text-amber-600 border-amber-200",
+  baixa: "bg-slate-500/10 text-slate-500 border-slate-200",
+};
+
+function TrendTopics({
+  brandKeywords,
+  nicheOnly,
+}: {
+  brandKeywords: string[];
+  nicheOnly: boolean;
+}) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [topics, setTopics] = useState<TrendTopic[] | null>(null);
+  const [msg, setMsg] = useState("");
+
+  async function analyze() {
+    setLoading(true);
+    setMsg("");
+    try {
+      const res = await fetch("/api/trends/topics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keywords: brandKeywords, nicheOnly }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMsg(data.error ?? "Falha ao analisar temas");
+      } else if (!data.topics?.length) {
+        setMsg(data.message ?? "Nenhum tema encontrado. Atualize as tendências (↻) e tente de novo.");
+      } else {
+        setTopics(data.topics as TrendTopic[]);
+      }
+    } catch {
+      setMsg("Erro de conexão");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border bg-gradient-to-br from-primary/[0.04] to-transparent p-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center size-8 rounded-lg bg-primary/10">
+            <Sparkles className="size-4 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold">Temas do momento</p>
+            <p className="text-[11px] text-muted-foreground">
+              A IA agrupa as tendências em temas e explica por que estão bombando.
+            </p>
+          </div>
+        </div>
+        <Button size="sm" onClick={() => void analyze()} disabled={loading}>
+          {loading ? (
+            <>
+              <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+              Analisando…
+            </>
+          ) : (
+            <>
+              <Sparkles className="mr-1.5 size-3.5" />
+              {topics ? "Atualizar temas" : "Analisar temas"}
+            </>
+          )}
+        </Button>
+      </div>
+
+      {msg && <p className="text-xs text-muted-foreground mt-3">{msg}</p>}
+
+      {topics && topics.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
+          {topics.map((topic, i) => (
+            <div key={i} className="rounded-lg border bg-card p-3.5 flex flex-col">
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <p className="text-sm font-semibold leading-snug">{topic.title}</p>
+                <Badge
+                  variant="outline"
+                  className={`shrink-0 text-[9px] uppercase ${HEAT_STYLES[topic.heat] ?? ""}`}
+                >
+                  <Flame className="size-2.5 mr-0.5" />
+                  {topic.heat}
+                </Badge>
+              </div>
+              <p className="text-[11px] text-muted-foreground mb-2">{topic.why}</p>
+              {topic.angle && (
+                <p className="text-[11px] text-foreground/80 italic mb-3 leading-snug">
+                  💡 {topic.angle}
+                </p>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-auto text-xs"
+                onClick={() =>
+                  router.push(
+                    `/generate?${new URLSearchParams({
+                      topic: topic.angle || topic.title,
+                    }).toString()}`
+                  )
+                }
+              >
+                <Sparkles className="mr-1.5 size-3" />
+                Gerar post sobre isso
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function TrendsClient({
   trends,
   currentUserId,
@@ -601,6 +727,9 @@ export function TrendsClient({
 
   return (
     <div className="space-y-5">
+      {/* Temas do momento (IA) */}
+      <TrendTopics brandKeywords={brandKeywords} nicheOnly={nicheOnly} />
+
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="flex gap-1.5 flex-wrap">
