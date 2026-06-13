@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { anthropic } from "@/lib/ai/anthropic";
 import { generationOutputSchema } from "@/lib/validations/generation";
+import { trackUsage } from "@/lib/billing/track";
+
+const REFINE_MODEL = "claude-sonnet-4-6";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -92,10 +95,21 @@ FORMATO DE SAÍDA (retorne EXATAMENTE esta estrutura, sem markdown, sem texto an
     ];
 
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
+      model: REFINE_MODEL,
       max_tokens: 8192,
       system: systemPrompt,
       messages,
+    });
+
+    await trackUsage({
+      supabase,
+      workspaceId: piece.workspace_id,
+      userId: user.id,
+      operation: "refine",
+      model: REFINE_MODEL,
+      tokensInput: response.usage.input_tokens,
+      tokensOutput: response.usage.output_tokens,
+      metadata: { piece_id: pieceId },
     });
 
     const text = response.content[0].type === "text" ? response.content[0].text : "";

@@ -6,10 +6,21 @@ import {
   generationInputSchema,
   generationOutputSchema,
 } from "@/lib/validations/generation";
+import { trackUsage } from "@/lib/billing/track";
+import type { Operation } from "@/lib/billing/pricing";
 // generationOutputSchema used for validating Claude's response below
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+const GENERATE_MODEL = "claude-sonnet-4-6";
+
+const FORMAT_OPERATION: Record<string, Operation> = {
+  carousel: "generate_carousel",
+  reel: "generate_reel",
+  story: "generate_story",
+  single: "generate_single",
+};
 
 function sseEvent(event: string, data: object): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -169,7 +180,7 @@ export async function POST(request: NextRequest) {
         }
 
         const claudeStream = anthropic.messages.stream({
-          model: "claude-sonnet-4-6",
+          model: GENERATE_MODEL,
           max_tokens: 8192,
           system: systemPrompt,
           messages: [{ role: "user", content: userPrompt }],
@@ -180,6 +191,17 @@ export async function POST(request: NextRequest) {
           if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
             fullText += event.delta.text;
           }
+        }
+
+        // Capture real token usage for cost tracking
+        let usageIn = 0;
+        let usageOut = 0;
+        try {
+          const finalMsg = await claudeStream.finalMessage();
+          usageIn = finalMsg.usage.input_tokens;
+          usageOut = finalMsg.usage.output_tokens;
+        } catch {
+          // usage unavailable — tracking will log 0
         }
 
         send("progress", { message: "Validando e salvando conteúdo..." });
@@ -233,10 +255,14 @@ export async function POST(request: NextRequest) {
           return;
         }
 
-        await supabase.from("usage_logs").insert({
-          workspace_id: brandRow.workspace_id,
-          user_id: user.id,
-          type: "generation",
+        await trackUsage({
+          supabase,
+          workspaceId: brandRow.workspace_id,
+          userId: user.id,
+          operation: FORMAT_OPERATION[input.format] ?? "generate_single",
+          model: GENERATE_MODEL,
+          tokensInput: usageIn,
+          tokensOutput: usageOut,
           metadata: {
             brand_id: input.brandId,
             format: input.format,
