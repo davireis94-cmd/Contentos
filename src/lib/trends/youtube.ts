@@ -48,14 +48,17 @@ function isShort(duration?: string): boolean {
  * Busca vídeos populares recentes por nicho no YouTube (região BR).
  * Requer YOUTUBE_API_KEY. Retorna [] se a chave não estiver configurada.
  */
-export async function fetchYouTubeTrends(perNiche = 6): Promise<FetchedTrend[]> {
+export async function fetchYouTubeTrends(
+  niches: typeof NICHES = NICHES,
+  perNiche = 6
+): Promise<FetchedTrend[]> {
   const key = process.env.YOUTUBE_API_KEY;
   if (!key) return [];
 
   const publishedAfter = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
   const results: FetchedTrend[] = [];
 
-  for (const niche of NICHES) {
+  for (const niche of niches) {
     try {
       // 1. Search recent videos by topic (ordered by view count)
       const searchParams = new URLSearchParams({
@@ -102,7 +105,7 @@ export async function fetchYouTubeTrends(perNiche = 6): Promise<FetchedTrend[]> 
         results.push({
           source: "youtube",
           externalId: v.id,
-          niche: niche.id,
+          niche: niche.tag ?? niche.id,
           title: v.snippet.title,
           description: v.snippet.description?.slice(0, 500) ?? null,
           sourceUrl: `https://www.youtube.com/watch?v=${v.id}`,

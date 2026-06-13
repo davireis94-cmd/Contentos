@@ -6,9 +6,41 @@
 export interface NicheConfig {
   id: string;
   label: string;
+  tag?: string; // etiqueta curta exibida no card (#tag). Default: id
   youtubeQuery: string; // termo de busca no YouTube (mais relevante que só categoria)
   youtubeCategories: number[];
-  subreddits: string[];
+  subreddits: string[]; // vazio = buscar no Reddit por palavra-chave (search)
+}
+
+/** Etiqueta curta (1-2 palavras) a partir de um texto livre. */
+function shortTag(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 3)
+    .slice(0, 2)
+    .join("-") || "marca";
+}
+
+/**
+ * Monta nichos de busca a partir dos temas da marca (pilares/descrição).
+ * Cada tema vira uma busca focada no YouTube + Reddit (por palavra-chave).
+ */
+export function brandNiches(queries: string[]): NicheConfig[] {
+  const clean = queries.map((q) => q.trim()).filter((q) => q.length > 2);
+  return Array.from(new Set(clean))
+    .slice(0, 4)
+    .map((q, i) => ({
+      id: `marca-${i + 1}`,
+      label: q,
+      tag: shortTag(q),
+      youtubeQuery: q,
+      youtubeCategories: [],
+      subreddits: [], // sem subreddit fixo → busca por palavra-chave
+    }));
 }
 
 export const NICHES: NicheConfig[] = [

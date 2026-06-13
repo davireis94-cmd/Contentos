@@ -8,6 +8,7 @@ interface RedditChild {
     permalink: string;
     url: string;
     author: string;
+    subreddit?: string;
     ups: number;
     num_comments: number;
     created_utc: number;
@@ -24,19 +25,34 @@ function hoursSinceUnix(sec: number): number {
  * Busca posts em alta nos subreddits de cada nicho.
  * Não requer chave (JSON público), mas precisa de User-Agent.
  */
-export async function fetchRedditTrends(perSub = 4): Promise<FetchedTrend[]> {
+export async function fetchRedditTrends(
+  niches: typeof NICHES = NICHES,
+  perSub = 4
+): Promise<FetchedTrend[]> {
   const results: FetchedTrend[] = [];
 
-  for (const niche of NICHES) {
-    for (const sub of niche.subreddits) {
-      try {
-        const res = await fetch(
-          `https://www.reddit.com/r/${sub}/hot.json?limit=${perSub}&raw_json=1`,
+  for (const niche of niches) {
+    // Sem subreddit fixo → busca por palavra-chave em todo o Reddit.
+    const endpoints = niche.subreddits.length
+      ? niche.subreddits.map((sub) => ({
+          sub,
+          url: `https://www.reddit.com/r/${sub}/hot.json?limit=${perSub}&raw_json=1`,
+        }))
+      : [
           {
-            headers: { "User-Agent": "Lumio/1.0 (content trends aggregator)" },
-            next: { revalidate: 3600 },
-          }
-        );
+            sub: "search",
+            url: `https://www.reddit.com/search.json?q=${encodeURIComponent(
+              niche.youtubeQuery
+            )}&sort=top&t=month&limit=${perSub}&raw_json=1`,
+          },
+        ];
+
+    for (const { sub, url } of endpoints) {
+      try {
+        const res = await fetch(url, {
+          headers: { "User-Agent": "Lumio/1.0 (content trends aggregator)" },
+          next: { revalidate: 3600 },
+        });
         if (!res.ok) continue;
         const data = (await res.json()) as { data?: { children?: RedditChild[] } };
 
@@ -53,12 +69,12 @@ export async function fetchRedditTrends(perSub = 4): Promise<FetchedTrend[]> {
           results.push({
             source: "reddit",
             externalId: p.id,
-            niche: niche.id,
+            niche: niche.tag ?? niche.id,
             title: p.title,
             description: p.selftext?.slice(0, 500) || null,
             sourceUrl: `https://www.reddit.com${p.permalink}`,
             thumbnailUrl: thumb,
-            author: `u/${p.author} · r/${sub}`,
+            author: `u/${p.author} · r/${p.subreddit ?? sub}`,
             platform: "reddit",
             format: "post",
             publishedAt: new Date(p.created_utc * 1000).toISOString(),

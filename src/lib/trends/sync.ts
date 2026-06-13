@@ -1,14 +1,16 @@
 import { createClient } from "@supabase/supabase-js";
 import { fetchYouTubeTrends } from "./youtube";
 import { fetchRedditTrends } from "./reddit";
-import type { FetchedTrend } from "./sources";
+import { NICHES, type FetchedTrend, type NicheConfig } from "./sources";
 
 /**
  * Coleta tendências do YouTube + Reddit e faz upsert na benchmark_content
  * como linhas globais (workspace_id = NULL, visíveis a todos).
  * Usa service role para poder inserir linhas globais (RLS bypass).
  */
-export async function syncTrends(): Promise<{
+export async function syncTrends(
+  niches: NicheConfig[] = NICHES
+): Promise<{
   youtube: number;
   reddit: number;
   total: number;
@@ -25,8 +27,8 @@ export async function syncTrends(): Promise<{
   });
 
   const [youtube, reddit] = await Promise.all([
-    fetchYouTubeTrends(),
-    fetchRedditTrends(),
+    fetchYouTubeTrends(niches),
+    fetchRedditTrends(niches),
   ]);
 
   const all: FetchedTrend[] = [...youtube, ...reddit];

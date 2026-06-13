@@ -516,6 +516,16 @@ const PLATFORM_TABS: PlatformTab[] = [
   { value: "saved", label: "Minhas refs", active: true },
 ];
 
+/** Pontuação de qualidade: prioriza velocidade e engajamento sobre volume bruto. */
+function qualityScore(t: Trend): number {
+  const m = t.metrics ?? {};
+  const velocity = m.velocityPerHour ?? 0;
+  const engagement = m.engagementRate ?? 0;
+  const social = (m.ups ?? 0) + (m.likes ?? 0) + (m.comments ?? 0);
+  // Engajamento pesa muito (qualidade); velocidade indica "em alta"; volume é desempate leve.
+  return engagement * 1000 + velocity + social * 0.01;
+}
+
 /** Um trend é relevante ao nicho se alguma palavra-chave da marca aparece nele. */
 function matchesNiche(trend: Trend, keywords: string[]): boolean {
   if (keywords.length === 0) return true;
@@ -725,6 +735,13 @@ export function TrendsClient({
         return true;
       });
 
+  // Ordena por qualidade: velocidade (views/h) e engajamento, não só volume bruto.
+  // Referências manuais ("Minhas refs") preservam a ordem de adição.
+  const ranked =
+    platform === "saved"
+      ? filtered
+      : [...filtered].sort((a, b) => qualityScore(b) - qualityScore(a));
+
   return (
     <div className="space-y-5">
       {/* Temas do momento (IA) */}
@@ -848,7 +865,7 @@ export function TrendsClient({
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtered.map((trend) => (
+          {ranked.map((trend) => (
             <TrendCard key={trend.id} trend={trend} currentUserId={currentUserId} />
           ))}
         </div>
