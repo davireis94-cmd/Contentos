@@ -84,7 +84,13 @@ export async function POST(request: NextRequest) {
   }
 
   const niches = await nichesForUser(request);
-  const result = await syncTrends(niches);
+  let result = await syncTrends(niches);
+
+  // Rede de segurança: se a busca por nicho não trouxe nada, usa os nichos gerais.
+  if (result.total === 0 && niches !== NICHES) {
+    result = await syncTrends(NICHES);
+  }
+
   const status = result.error && result.total === 0 ? 502 : 200;
   return NextResponse.json(result, { status });
 }

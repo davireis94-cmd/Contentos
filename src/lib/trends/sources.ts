@@ -12,17 +12,32 @@ export interface NicheConfig {
   subreddits: string[]; // vazio = buscar no Reddit por palavra-chave (search)
 }
 
-/** Etiqueta curta (1-2 palavras) a partir de um texto livre. */
-function shortTag(text: string): string {
+const PT_STOPWORDS = new Set([
+  "para","com","que","dos","das","uma","seu","sua","por","mais","como","sobre",
+  "the","and","for","with","você","voce","nas","nos","aos","pra","ser","tem",
+  "de","da","do","em","no","na","os","as","um","ao","sem","seus","suas","meu",
+  "minha","nosso","nossa","todo","toda","cada","entre","sobre","ainda","muito",
+]);
+
+/** Palavras significativas (>3 letras, sem stopwords, sem acento) de um texto. */
+function keywords(text: string): string[] {
   return text
     .toLowerCase()
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
-    .filter((w) => w.length > 3)
-    .slice(0, 2)
-    .join("-") || "marca";
+    .filter((w) => w.length > 3 && !PT_STOPWORDS.has(w));
+}
+
+/** Etiqueta curta (1-2 palavras) a partir de um texto livre. */
+function shortTag(text: string): string {
+  return keywords(text).slice(0, 2).join("-") || "marca";
+}
+
+/** Converte um texto livre (pilar/frase) numa busca enxuta de 2-4 palavras-chave. */
+function conciseQuery(text: string): string {
+  return keywords(text).slice(0, 4).join(" ");
 }
 
 /**
@@ -30,17 +45,24 @@ function shortTag(text: string): string {
  * Cada tema vira uma busca focada no YouTube + Reddit (por palavra-chave).
  */
 export function brandNiches(queries: string[]): NicheConfig[] {
-  const clean = queries.map((q) => q.trim()).filter((q) => q.length > 2);
-  return Array.from(new Set(clean))
-    .slice(0, 4)
-    .map((q, i) => ({
-      id: `marca-${i + 1}`,
-      label: q,
-      tag: shortTag(q),
-      youtubeQuery: q,
-      youtubeCategories: [],
-      subreddits: [], // sem subreddit fixo → busca por palavra-chave
-    }));
+  const built = queries
+    .map((q) => ({ label: q.trim(), query: conciseQuery(q) }))
+    .filter((q) => q.query.length > 2);
+  // Dedup pela busca enxuta (evita pilares que viram a mesma query)
+  const seen = new Set<string>();
+  const unique = built.filter((q) => {
+    if (seen.has(q.query)) return false;
+    seen.add(q.query);
+    return true;
+  });
+  return unique.slice(0, 4).map((q, i) => ({
+    id: `marca-${i + 1}`,
+    label: q.label,
+    tag: shortTag(q.label),
+    youtubeQuery: q.query,
+    youtubeCategories: [],
+    subreddits: [], // sem subreddit fixo → busca por palavra-chave
+  }));
 }
 
 export const NICHES: NicheConfig[] = [
