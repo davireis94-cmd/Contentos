@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { syncTrends } from "@/lib/trends/sync";
+import { syncTrends, type TrendPlatform } from "@/lib/trends/sync";
 import { brandNiches, NICHES, type NicheConfig } from "@/lib/trends/sources";
 
 export const runtime = "nodejs";
@@ -83,12 +83,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
+  // Plataforma específica (instagram/tiktok via Apify) ou padrão grátis (yt+reddit).
+  let platform: string | undefined;
+  try {
+    const body = (await request.json()) as { platform?: string };
+    platform = body.platform;
+  } catch {
+    /* sem corpo = padrão */
+  }
+
   const niches = await nichesForUser(request);
-  let result = await syncTrends(niches);
+
+  if (platform === "instagram" || platform === "tiktok") {
+    const result = await syncTrends(niches, [platform as TrendPlatform]);
+    const status = result.error && result.total === 0 ? 502 : 200;
+    return NextResponse.json(result, { status });
+  }
+
+  // Padrão: YouTube + Reddit (grátis)
+  let result = await syncTrends(niches, ["youtube", "reddit"]);
 
   // Rede de segurança: se a busca por nicho não trouxe nada, usa os nichos gerais.
   if (result.total === 0 && niches !== NICHES) {
-    result = await syncTrends(NICHES);
+    result = await syncTrends(NICHES, ["youtube", "reddit"]);
   }
 
   const status = result.error && result.total === 0 ? 502 : 200;

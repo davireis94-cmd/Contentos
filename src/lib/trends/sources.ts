@@ -93,7 +93,7 @@ export const REGION_CODE = "BR";
 export const RELEVANCE_LANGUAGE = "pt";
 
 export interface FetchedTrend {
-  source: "youtube" | "reddit";
+  source: "youtube" | "reddit" | "instagram" | "tiktok";
   externalId: string;
   niche: string;
   title: string;
@@ -109,6 +109,7 @@ export interface FetchedTrend {
     likes?: number;
     comments?: number;
     ups?: number;
+    saved?: number;
     engagementRate?: number; // %
     velocityPerHour?: number;
   };

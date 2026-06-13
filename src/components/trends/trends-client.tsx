@@ -499,11 +499,11 @@ const PLATFORM_TABS: PlatformTab[] = [
       { value: "short", label: "Shorts" },
     ],
   },
-  { value: "tiktok", label: "TikTok", active: false },
+  { value: "tiktok", label: "TikTok", active: true },
   {
     value: "instagram",
     label: "Instagram",
-    active: false,
+    active: true,
     sub: [
       { value: "all", label: "Tudo" },
       { value: "reel", label: "Reels" },
@@ -690,14 +690,24 @@ export function TrendsClient({
     setSub("all");
   }
 
-  async function handleSync() {
+  async function handleSync(platformKey?: "instagram" | "tiktok") {
     setSyncing(true);
     setSyncMsg("");
     try {
-      const res = await fetch("/api/trends/sync", { method: "POST" });
+      const res = await fetch("/api/trends/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(platformKey ? { platform: platformKey } : {}),
+      });
       const data = await res.json();
       if (!res.ok) {
         setSyncMsg(data.error ?? "Falha ao atualizar");
+      } else if (platformKey === "instagram") {
+        setSyncMsg(`${data.instagram} tendências do Instagram coletadas`);
+        router.refresh();
+      } else if (platformKey === "tiktok") {
+        setSyncMsg(`${data.tiktok} tendências do TikTok coletadas`);
+        router.refresh();
       } else {
         setSyncMsg(`${data.total} tendências atualizadas (YT ${data.youtube} · Reddit ${data.reddit})`);
         router.refresh();
@@ -832,6 +842,29 @@ export function TrendsClient({
               {nicheOnly ? "Meu nicho" : "Ver tudo"}
             </button>
           )}
+        </div>
+      )}
+
+      {/* Ação Apify (Instagram / TikTok) */}
+      {(platform === "instagram" || platform === "tiktok") && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed bg-muted/30 px-4 py-2.5">
+          <p className="text-[11px] text-muted-foreground">
+            Tendências do {activeTab?.label} são coletadas via Apify (consome crédito).
+            Use com moderação.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void handleSync(platform as "instagram" | "tiktok")}
+            disabled={syncing}
+          >
+            {syncing ? (
+              <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-1.5 size-3.5" />
+            )}
+            Buscar no {activeTab?.label}
+          </Button>
         </div>
       )}
 
