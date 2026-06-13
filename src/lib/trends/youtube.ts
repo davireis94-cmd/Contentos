@@ -26,10 +26,22 @@ interface VideoItem {
     likeCount?: string;
     commentCount?: string;
   };
+  contentDetails?: {
+    duration?: string; // ISO 8601, ex: PT1M30S
+  };
 }
 
 function hoursSince(iso: string): number {
   return Math.max(1, (Date.now() - new Date(iso).getTime()) / 3_600_000);
+}
+
+/** Vídeos de até 60s (vertical) são tratados como Shorts. */
+function isShort(duration?: string): boolean {
+  if (!duration) return false;
+  const m = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return false;
+  const total = Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0);
+  return total > 0 && total <= 60;
 }
 
 /**
@@ -70,7 +82,7 @@ export async function fetchYouTubeTrends(perNiche = 6): Promise<FetchedTrend[]> 
 
       // 2. Fetch statistics for those videos
       const videosParams = new URLSearchParams({
-        part: "snippet,statistics",
+        part: "snippet,statistics,contentDetails",
         id: ids.join(","),
         key,
       });
@@ -98,7 +110,7 @@ export async function fetchYouTubeTrends(perNiche = 6): Promise<FetchedTrend[]> 
             v.snippet.thumbnails.high?.url ?? v.snippet.thumbnails.medium?.url ?? null,
           author: v.snippet.channelTitle,
           platform: "youtube",
-          format: "reel",
+          format: isShort(v.contentDetails?.duration) ? "short" : "video",
           publishedAt: v.snippet.publishedAt,
           metrics: {
             views,

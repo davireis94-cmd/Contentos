@@ -80,6 +80,8 @@ const FORMAT_LABELS: Record<string, string> = {
   story: "Stories",
   single: "Post único",
   post: "Post",
+  video: "Vídeo",
+  short: "Shorts",
 };
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -473,28 +475,84 @@ function TrendCard({
 
 // ── Main Client Component ───────────────────────────────────────────────────
 
-const FILTER_TABS = [
-  { value: "all", label: "Todos" },
-  { value: "market", label: "🔥 Mercado" },
-  { value: "saved", label: "Minhas refs" },
-  { value: "youtube", label: "YouTube" },
-  { value: "reddit", label: "Reddit" },
-  { value: "carousel", label: "Carrossel" },
-  { value: "reel", label: "Reels" },
+interface SubFilter {
+  value: string; // matches Trend.format
+  label: string;
+}
+
+interface PlatformTab {
+  value: string; // 'all' | 'saved' | platform key
+  label: string;
+  active: boolean; // false = "Em breve" (fonte ainda não ligada)
+  sub?: SubFilter[];
+}
+
+const PLATFORM_TABS: PlatformTab[] = [
+  { value: "all", label: "Todos", active: true },
+  {
+    value: "youtube",
+    label: "YouTube",
+    active: true,
+    sub: [
+      { value: "all", label: "Tudo" },
+      { value: "video", label: "Vídeo" },
+      { value: "short", label: "Shorts" },
+    ],
+  },
+  { value: "tiktok", label: "TikTok", active: false },
+  {
+    value: "instagram",
+    label: "Instagram",
+    active: false,
+    sub: [
+      { value: "all", label: "Tudo" },
+      { value: "reel", label: "Reels" },
+      { value: "carousel", label: "Carrossel" },
+    ],
+  },
+  { value: "reddit", label: "Reddit", active: true },
+  { value: "x", label: "X", active: false },
+  { value: "linkedin", label: "LinkedIn", active: false },
+  { value: "saved", label: "Minhas refs", active: true },
 ];
+
+/** Um trend é relevante ao nicho se alguma palavra-chave da marca aparece nele. */
+function matchesNiche(trend: Trend, keywords: string[]): boolean {
+  if (keywords.length === 0) return true;
+  const haystack = [
+    trend.title,
+    trend.niche ?? "",
+    trend.notes ?? "",
+    ...trend.topic_tags,
+  ]
+    .join(" ")
+    .toLowerCase();
+  return keywords.some((k) => haystack.includes(k));
+}
 
 export function TrendsClient({
   trends,
   currentUserId,
+  brandKeywords = [],
 }: {
   trends: Trend[];
   currentUserId: string;
+  brandKeywords?: string[];
 }) {
   const router = useRouter();
-  const [filter, setFilter] = useState("all");
+  const [platform, setPlatform] = useState("all");
+  const [sub, setSub] = useState("all");
+  const [nicheOnly, setNicheOnly] = useState(brandKeywords.length > 0);
   const [search, setSearch] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
+
+  const activeTab = PLATFORM_TABS.find((t) => t.value === platform);
+
+  function selectPlatform(value: string) {
+    setPlatform(value);
+    setSub("all");
+  }
 
   async function handleSync() {
     setSyncing(true);
@@ -515,38 +573,53 @@ export function TrendsClient({
     }
   }
 
-  const filtered = trends.filter((t) => {
-    if (filter === "market" && t.source === "manual") return false;
-    if (filter === "saved" && t.source !== "manual") return false;
-    if ((filter === "youtube" || filter === "reddit") && t.platform !== filter) return false;
-    if ((filter === "carousel" || filter === "reel") && t.format !== filter) return false;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      const matches =
-        t.title.toLowerCase().includes(q) ||
-        t.topic_tags.some((tag) => tag.includes(q)) ||
-        (t.notes ?? "").toLowerCase().includes(q);
-      if (!matches) return false;
-    }
-    return true;
-  });
+  const comingSoon = !!activeTab && !activeTab.active;
+
+  const filtered = comingSoon
+    ? []
+    : trends.filter((t) => {
+        if (platform === "saved") {
+          if (t.source !== "manual") return false;
+        } else if (platform !== "all") {
+          if (t.platform !== platform) return false;
+          if (sub !== "all" && t.format !== sub) return false;
+        }
+        // Personalização por nicho (não aplica em "Minhas refs")
+        if (nicheOnly && platform !== "saved" && !matchesNiche(t, brandKeywords)) {
+          return false;
+        }
+        if (search.trim()) {
+          const q = search.toLowerCase();
+          const matches =
+            t.title.toLowerCase().includes(q) ||
+            t.topic_tags.some((tag) => tag.includes(q)) ||
+            (t.notes ?? "").toLowerCase().includes(q);
+          if (!matches) return false;
+        }
+        return true;
+      });
 
   return (
     <div className="space-y-5">
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="flex gap-1.5 flex-wrap">
-          {FILTER_TABS.map((tab) => (
+          {PLATFORM_TABS.map((tab) => (
             <button
               key={tab.value}
-              onClick={() => setFilter(tab.value)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                filter === tab.value
+              onClick={() => selectPlatform(tab.value)}
+              className={`relative px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                platform === tab.value
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:bg-muted/80"
               }`}
             >
               {tab.label}
+              {!tab.active && (
+                <span className="ml-1.5 text-[9px] uppercase tracking-wide opacity-70">
+                  em breve
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -578,7 +651,58 @@ export function TrendsClient({
         <p className="text-xs text-muted-foreground -mt-2">{syncMsg}</p>
       )}
 
+      {/* Sub-filtros + personalização por nicho */}
+      {!comingSoon && (
+        <div className="flex flex-wrap items-center gap-2 -mt-1">
+          {activeTab?.sub && (
+            <div className="flex gap-1">
+              {activeTab.sub.map((s) => (
+                <button
+                  key={s.value}
+                  onClick={() => setSub(s.value)}
+                  className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+                    sub === s.value
+                      ? "bg-foreground/10 text-foreground"
+                      : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {brandKeywords.length > 0 && platform !== "saved" && (
+            <button
+              onClick={() => setNicheOnly((v) => !v)}
+              className={`ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+                nicheOnly
+                  ? "bg-primary/10 text-primary border-primary/30"
+                  : "text-muted-foreground border-transparent hover:bg-muted"
+              }`}
+              title={nicheOnly ? "Mostrando só o seu nicho" : "Mostrando tudo"}
+            >
+              <Sparkles className="size-3" />
+              {nicheOnly ? "Meu nicho" : "Ver tudo"}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Grid */}
+      {comingSoon ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <TrendingUp className="size-10 text-muted-foreground/30 mb-3" />
+          <p className="text-sm font-medium text-muted-foreground">
+            {activeTab?.label}: em breve
+          </p>
+          <p className="text-xs text-muted-foreground/60 mt-1 max-w-xs">
+            Estamos preparando a coleta de tendências desta plataforma. Em breve ela aparece aqui automaticamente.
+          </p>
+        </div>
+      ) : (
+      <>
+      {/* Grid de resultados */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <TrendingUp className="size-10 text-muted-foreground/30 mb-3" />
@@ -599,6 +723,8 @@ export function TrendsClient({
             <TrendCard key={trend.id} trend={trend} currentUserId={currentUserId} />
           ))}
         </div>
+      )}
+      </>
       )}
     </div>
   );
