@@ -76,7 +76,8 @@ export async function POST(request: NextRequest) {
               `id, name, description, identity,
                brand_voice ( tone, target_audience, content_pillars, characteristic_phrases, forbidden_words ),
                brand_examples ( content ),
-               brand_documents ( extracted_content )`
+               brand_documents ( extracted_content ),
+               brand_references ( name, handle, ai_analysis )`
             )
             .eq("id", input.brandId)
             .single(),
@@ -148,6 +149,16 @@ export async function POST(request: NextRequest) {
           performance: ((brand as { identity?: { performance_insights?: unknown } }).identity?.performance_insights ?? null) as
             | import("@/lib/brand/performance").PerformanceInsights
             | null,
+          benchmark: (Array.isArray((brand as Record<string, unknown>).brand_references)
+            ? ((brand as Record<string, unknown>).brand_references as { name: string; handle: string | null; ai_analysis: string | null }[])
+            : []
+          )
+            .map((r) => {
+              let a: { estrategia?: string; estilo?: string; licoes?: string[] } = {};
+              try { a = r.ai_analysis ? JSON.parse(r.ai_analysis) : {}; } catch { a = {}; }
+              return { name: r.name, handle: r.handle, estrategia: a.estrategia, estilo: a.estilo, licoes: a.licoes };
+            })
+            .filter((b) => b.estrategia || b.estilo || (b.licoes?.length ?? 0) > 0),
         };
 
         const systemPrompt = buildSystemPrompt(brandContext, input);

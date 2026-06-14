@@ -38,6 +38,15 @@ interface BrandContext {
   externalRef?: string;
   extras?: BrandExtras | null;
   performance?: PerformanceInsights | null;
+  benchmark?: BenchmarkRef[];
+}
+
+export interface BenchmarkRef {
+  name: string;
+  handle: string | null;
+  estrategia?: string;
+  estilo?: string;
+  licoes?: string[];
 }
 
 const OBJECTIVE_LABELS: Record<string, string> = {
@@ -173,6 +182,20 @@ export function buildSystemPrompt(brand: BrandContext, input: GenerationInput): 
           .join("\n\n")
       : null;
 
+  const benchmarkSection =
+    brand.benchmark && brand.benchmark.length > 0
+      ? brand.benchmark
+          .slice(0, 5)
+          .map((b) => {
+            const parts: string[] = [`### ${b.name}${b.handle ? ` (${b.handle})` : ""}`];
+            if (b.estrategia) parts.push(`Estratégia: ${b.estrategia}`);
+            if (b.estilo) parts.push(`Tom & estilo: ${b.estilo}`);
+            if (b.licoes?.length) parts.push(`Lições: ${b.licoes.join(" | ")}`);
+            return parts.join("\n");
+          })
+          .join("\n\n")
+      : null;
+
   const externalRefSection = brand.externalRef
     ? `## POST EXTERNO DE REFERÊNCIA\nAnalise a estrutura, o ritmo, o ângulo e o gancho deste post. Inspire-se APENAS na lógica narrativa — o conteúdo gerado deve ser completamente original e escrito na voz da marca:\n\n${brand.externalRef}`
     : null;
@@ -285,7 +308,7 @@ ${renderPerformanceForPrompt(brand.performance) ? `\n## O QUE FUNCIONA COM ESTE 
 
 ## EXEMPLOS DE POSTS REAIS DESTA MARCA
 ${examplesSection}
-${docsSection ? `\n## IDENTIDADE DA MARCA (documentos oficiais)\n${docsSection}\n` : ""}${refsSection ? `\n## POSTS DE REFERÊNCIA (mesma lógica estrutural, conteúdo 100% original)\n${refsSection}\n` : ""}${importedRefSection ? `\n${importedRefSection}\n` : ""}${externalRefSection ? `\n${externalRefSection}\n` : ""}
+${docsSection ? `\n## IDENTIDADE DA MARCA (documentos oficiais)\n${docsSection}\n` : ""}${benchmarkSection ? `\n## BENCHMARK — CRIADORES DE REFERÊNCIA (inspire-se na estratégia e no estilo, conteúdo 100% original e na voz da marca)\n${benchmarkSection}\n` : ""}${refsSection ? `\n## POSTS DE REFERÊNCIA (mesma lógica estrutural, conteúdo 100% original)\n${refsSection}\n` : ""}${importedRefSection ? `\n${importedRefSection}\n` : ""}${externalRefSection ? `\n${externalRefSection}\n` : ""}
 ## PLATAFORMA: ${input.platform.toUpperCase()}
 ${platformSpecs}
 ${toolSection}${layoutSection}
