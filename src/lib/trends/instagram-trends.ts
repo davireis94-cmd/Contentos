@@ -6,6 +6,7 @@ const ACTOR = "apify~instagram-hashtag-scraper";
 interface IgItem {
   error?: string;
   errorDescription?: string;
+  requestErrorMessages?: unknown;
   id?: string;
   shortCode?: string;
   type?: string; // Image | Video | Sidecar
@@ -92,9 +93,13 @@ export async function fetchInstagramTrends(
     if (items.length === 0) {
       throw new Error(`Apify OK, 0 itens para #${tags.join(", #")}`);
     }
-    const errored = items.find((it) => it.error || it.errorDescription);
+    const errored = items.find((it) => it.error || it.errorDescription || it.requestErrorMessages);
     if (errored) {
-      throw new Error(`Apify (instagram): ${errored.errorDescription ?? errored.error}`);
+      const detail =
+        errored.errorDescription ||
+        errored.error ||
+        JSON.stringify(errored.requestErrorMessages);
+      throw new Error(`Apify (instagram): ${String(detail).slice(0, 250)}`);
     }
     throw new Error(
       `Apify devolveu ${items.length} itens em formato inesperado. Campos: ${Object.keys(
