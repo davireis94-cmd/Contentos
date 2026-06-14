@@ -21,27 +21,59 @@ function hoursSinceUnix(sec: number): number {
   return Math.max(1, (Date.now() / 1000 - sec) / 3600);
 }
 
+/** Obtém token OAuth app-only do Reddit (client_credentials). */
+async function getRedditToken(): Promise<string | null> {
+  const clientId = process.env.REDDIT_CLIENT_ID;
+  const clientSecret = process.env.REDDIT_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return null;
+
+  const creds = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+  try {
+    const res = await fetch("https://www.reddit.com/api/v1/access_token", {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${creds}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "Lumio/1.0 (content trends aggregator)",
+      },
+      body: "grant_type=client_credentials",
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { access_token?: string };
+    return data.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Busca posts em alta nos subreddits de cada nicho.
- * Não requer chave (JSON público), mas precisa de User-Agent.
+ * Usa OAuth app-only se REDDIT_CLIENT_ID/SECRET estiverem configurados;
+ * caso contrário tenta a API pública (bloqueada em IPs de datacenter).
  */
 export async function fetchRedditTrends(
   niches: typeof NICHES = NICHES,
   perSub = 4
 ): Promise<FetchedTrend[]> {
+  const token = await getRedditToken();
+  const baseUrl = token ? "https://oauth.reddit.com" : "https://www.reddit.com";
+  const headers: Record<string, string> = {
+    "User-Agent": "Lumio/1.0 (content trends aggregator)",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
   const results: FetchedTrend[] = [];
 
   for (const niche of niches) {
-    // Sem subreddit fixo → busca por palavra-chave em todo o Reddit.
     const endpoints = niche.subreddits.length
       ? niche.subreddits.map((sub) => ({
           sub,
-          url: `https://www.reddit.com/r/${sub}/hot.json?limit=${perSub}&raw_json=1`,
+          url: `${baseUrl}/r/${sub}/hot.json?limit=${perSub}&raw_json=1`,
         }))
       : [
           {
             sub: "search",
-            url: `https://www.reddit.com/search.json?q=${encodeURIComponent(
+            url: `${baseUrl}/search.json?q=${encodeURIComponent(
               niche.youtubeQuery
             )}&sort=top&t=month&limit=${perSub}&raw_json=1`,
           },
@@ -49,10 +81,7 @@ export async function fetchRedditTrends(
 
     for (const { sub, url } of endpoints) {
       try {
-        const res = await fetch(url, {
-          headers: { "User-Agent": "Lumio/1.0 (content trends aggregator)" },
-          next: { revalidate: 3600 },
-        });
+        const res = await fetch(url, { headers, next: { revalidate: 3600 } });
         if (!res.ok) continue;
         const data = (await res.json()) as { data?: { children?: RedditChild[] } };
 

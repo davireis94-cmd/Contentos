@@ -12,6 +12,7 @@ import {
   Send,
   Wand2,
   ClipboardCopy,
+  Sparkles,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -100,6 +101,8 @@ export function StreamOutput({ state }: Props) {
   const lastPieceIdRef = useRef<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [allCopied, setAllCopied] = useState(false);
+  const [humanizing, setHumanizing] = useState(false);
+  const [humanized, setHumanized] = useState(false);
 
   useEffect(() => {
     if (state.status === "done" && lastPieceIdRef.current !== state.pieceId) {
@@ -186,6 +189,52 @@ export function StreamOutput({ state }: Props) {
     setTimeout(() => setAllCopied(false), 2000);
   }
 
+  async function handleHumanize() {
+    if (humanizing) return;
+    setHumanizing(true);
+    try {
+      const fullText = buildFullCopy(displayOutput);
+      const res = await fetch("/api/humanize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: fullText }),
+      });
+      const data = await res.json() as { humanized?: string; error?: string };
+      if (!res.ok || !data.humanized) throw new Error(data.error ?? "Erro");
+
+      // Parse humanized text back into output structure (update caption at minimum)
+      const lines = data.humanized.split("\n");
+      const captionIdx = lines.findIndex((l) => l.startsWith("LEGENDA:"));
+      const hashIdx = lines.findIndex((l) => l.startsWith("HASHTAGS:"));
+
+      const newOutput = { ...displayOutput, slides: [...displayOutput.slides] };
+      if (captionIdx !== -1 && hashIdx !== -1) {
+        newOutput.caption = lines.slice(captionIdx + 1, hashIdx).join("\n").trim();
+      }
+      // Rebuild slide bodies from humanized text
+      const slideMatches = data.humanized.matchAll(/SLIDE\s+\d+[^\n]*\n([\s\S]*?)(?=SLIDE\s+\d+|---)/g);
+      let si = 0;
+      for (const m of slideMatches) {
+        if (si < newOutput.slides.length) {
+          const slideLines = m[1].trim().split("\n");
+          newOutput.slides[si] = {
+            ...newOutput.slides[si],
+            body: slideLines.slice(1).join("\n").trim() || newOutput.slides[si].body,
+          };
+          si++;
+        }
+      }
+
+      setLocalOutput(newOutput as GenerationOutput);
+      setHumanized(true);
+      setTimeout(() => setHumanized(false), 3000);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setHumanizing(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -195,20 +244,40 @@ export function StreamOutput({ state }: Props) {
           <p className="text-sm font-medium">Conteúdo gerado com sucesso</p>
           <Badge variant="secondary">{FORMAT_LABELS[displayOutput.format] ?? displayOutput.format}</Badge>
         </div>
-        <button
-          onClick={() => void handleCopyAll()}
-          className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
-            allCopied
-              ? "border-green-300 bg-green-50 text-green-700"
-              : "hover:bg-accent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          {allCopied ? (
-            <><Check className="size-3.5" /> Copiado!</>
-          ) : (
-            <><ClipboardCopy className="size-3.5" /> Copiar tudo</>
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => void handleHumanize()}
+            disabled={humanizing}
+            className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+              humanized
+                ? "border-purple-300 bg-purple-50 text-purple-700"
+                : "hover:bg-accent text-muted-foreground hover:text-foreground"
+            }`}
+            title="Remove padrões de IA e deixa o texto mais humano"
+          >
+            {humanizing ? (
+              <><Loader2 className="size-3.5 animate-spin" /> Humanizando…</>
+            ) : humanized ? (
+              <><Check className="size-3.5" /> Humanizado!</>
+            ) : (
+              <><Sparkles className="size-3.5" /> Humanizar ✦</>
+            )}
+          </button>
+          <button
+            onClick={() => void handleCopyAll()}
+            className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+              allCopied
+                ? "border-green-300 bg-green-50 text-green-700"
+                : "hover:bg-accent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {allCopied ? (
+              <><Check className="size-3.5" /> Copiado!</>
+            ) : (
+              <><ClipboardCopy className="size-3.5" /> Copiar tudo</>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Slides */}
