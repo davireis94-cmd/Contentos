@@ -38,14 +38,35 @@ export async function POST(request: NextRequest) {
     .single();
   if (!piece) return NextResponse.json({ error: "Conteúdo não encontrado" }, { status: 404 });
 
-  const [{ data: brand }, { data: voice }] = await Promise.all([
+  const [{ data: brand }, { data: voice }, { data: refs }] = await Promise.all([
     supabase.from("brands").select("description, identity").eq("id", piece.brand_id).single(),
     supabase
       .from("brand_voice")
       .select("tone, target_audience")
       .eq("brand_id", piece.brand_id)
       .maybeSingle(),
+    supabase
+      .from("brand_references")
+      .select("ai_analysis")
+      .eq("brand_id", piece.brand_id)
+      .not("ai_analysis", "is", null),
   ]);
+
+  // DNA visual: usa o da primeira referência analisada que tiver.
+  let referenceStyle: BrandImageContext["referenceStyle"] = null;
+  for (const r of refs ?? []) {
+    try {
+      const a = JSON.parse(r.ai_analysis as string);
+      if (a?.visual_dna) {
+        referenceStyle = {
+          mood: a.visual_dna.mood,
+          layout: a.visual_dna.layout,
+          uso_de_foto: a.visual_dna.uso_de_foto,
+        };
+        break;
+      }
+    } catch { /* ignora análise inválida */ }
+  }
 
   const identity = (brand?.identity ?? {}) as { colors?: { hex: string; role?: string }[] };
   const brandCtx: BrandImageContext = {
@@ -53,6 +74,7 @@ export async function POST(request: NextRequest) {
     colors: identity.colors,
     tone: voice?.tone ?? null,
     audience: voice?.target_audience ?? null,
+    referenceStyle,
   };
 
   const slideTopic = topic?.trim() || (piece.title as string) || "tema do post";

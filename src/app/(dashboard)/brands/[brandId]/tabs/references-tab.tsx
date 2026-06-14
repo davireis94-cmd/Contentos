@@ -21,6 +21,14 @@ interface Analysis {
   formatos_frequentes?: string[];
   licoes?: string[];
   sugestoes?: { tema: string; formato: string; objetivo: string }[];
+  visual_dna?: {
+    paleta?: string[];
+    mood?: string;
+    layout?: string;
+    tipografia?: string;
+    uso_de_foto?: string;
+    densidade_texto?: string;
+  };
 }
 
 interface Reference {
@@ -337,6 +345,24 @@ function ReferenceCard({ reference, brandId, voice }: { reference: Reference; br
                     <p className="text-xs">{analysis.estilo}</p>
                   </div>
                 )}
+                {analysis.visual_dna && (analysis.visual_dna.mood || analysis.visual_dna.paleta?.length) ? (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">DNA visual (a IA usa ao gerar)</p>
+                    {analysis.visual_dna.paleta?.length ? (
+                      <div className="flex items-center gap-1 mb-1.5">
+                        {analysis.visual_dna.paleta.slice(0, 6).map((c, i) => (
+                          <span key={i} className="size-4 rounded-full border" style={{ backgroundColor: c }} title={c} />
+                        ))}
+                      </div>
+                    ) : null}
+                    <div className="space-y-0.5 text-xs text-muted-foreground">
+                      {analysis.visual_dna.mood && <p><b className="text-foreground/70">Mood:</b> {analysis.visual_dna.mood}</p>}
+                      {analysis.visual_dna.layout && <p><b className="text-foreground/70">Layout:</b> {analysis.visual_dna.layout}</p>}
+                      {analysis.visual_dna.uso_de_foto && <p><b className="text-foreground/70">Foto:</b> {analysis.visual_dna.uso_de_foto}</p>}
+                    </div>
+                  </div>
+                ) : null}
+
                 {analysis.pontos_fortes?.length ? (
                   <div>
                     <p className="text-xs font-medium text-muted-foreground mb-1.5">Pontos fortes</p>

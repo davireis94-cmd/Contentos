@@ -12,6 +12,8 @@ export interface BrandImageContext {
   colors?: { hex: string; role?: string }[];
   tone?: string | null;
   audience?: string | null;
+  /** DNA visual agregado das referências (benchmark) — guia de estilo, não cópia. */
+  referenceStyle?: { mood?: string; layout?: string; uso_de_foto?: string } | null;
 }
 
 const TONE_MOOD: Record<string, string> = {
@@ -29,10 +31,16 @@ export function buildImagePrompt(topic: string, brand: BrandImageContext): strin
 
   const mood = brand.tone ? TONE_MOOD[brand.tone] ?? "sophisticated, premium" : "sophisticated, premium";
 
+  const ref = brand.referenceStyle;
+  const refLine = ref && (ref.mood || ref.layout || ref.uso_de_foto)
+    ? `Take visual cues (mood/composition, do NOT copy) from this reference style: ${[ref.mood, ref.uso_de_foto, ref.layout].filter(Boolean).join("; ")}.`
+    : "";
+
   const parts = [
     `Editorial, magazine-quality vertical background image for a premium Instagram carousel about "${topic}".`,
     `Visual style: ${mood}, cinematic lighting, shallow depth of field, subtle film grain.`,
     `Color grading cohesive with this brand palette: ${colors}.`,
+    refLine,
     brand.description ? `Brand context: ${brand.description.slice(0, 200)}.` : "",
     brand.audience ? `Aimed at: ${brand.audience}.` : "",
     `Leave generous negative space in the lower third for a text overlay.`,
