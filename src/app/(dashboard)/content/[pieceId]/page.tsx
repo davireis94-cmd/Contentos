@@ -28,8 +28,10 @@ export default async function ContentPiecePage({
   const slides = Array.isArray(piece.slides) ? piece.slides : [];
   const brandObj = Array.isArray(piece.brands) ? piece.brands[0] : piece.brands;
   const brandName = (brandObj as { name: string } | null)?.name ?? null;
-  const brandIdentity = ((brandObj as { identity?: { colors?: { hex: string; role?: string }[] } } | null)?.identity ?? {});
+  const brandIdentity = ((brandObj as { identity?: { colors?: { hex: string; role?: string }[]; font_heading?: string; font_body?: string } } | null)?.identity ?? {});
   const brandColors = brandIdentity.colors ?? [];
+  const brandFontHeading = brandIdentity.font_heading ?? null;
+  const brandFontBody = brandIdentity.font_body ?? null;
 
   // Handle do Instagram conectado (para o rodapé dos slides)
   const { data: conn } = await supabase
@@ -69,6 +71,8 @@ export default async function ContentPiecePage({
       brandName={brandName}
       brandColors={brandColors}
       brandHandle={brandHandle}
+      brandFontHeading={brandFontHeading}
+      brandFontBody={brandFontBody}
       output={output}
     />
   );

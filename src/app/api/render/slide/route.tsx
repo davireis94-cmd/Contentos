@@ -580,7 +580,12 @@ export async function POST(request: NextRequest) {
       slide: SlideInput;
       idx?: number;
       total?: number;
-      brand?: { colors?: { hex: string; role?: string }[]; handle?: string | null };
+      brand?: {
+        colors?: { hex: string; role?: string }[];
+        handle?: string | null;
+        fontHeading?: string | null;
+        fontBody?: string | null;
+      };
     };
 
     if (!slide?.title) {
@@ -588,7 +593,7 @@ export async function POST(request: NextRequest) {
     }
 
     const tokens = deriveBrandTokens(brand?.colors, brand?.handle);
-    const fonts = await getBrandFonts();
+    const fonts = await getBrandFonts(brand?.fontHeading, brand?.fontBody);
 
     return new ImageResponse(renderSlide(slide, idx, total, tokens), {
       width: W,

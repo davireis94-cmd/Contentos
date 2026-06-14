@@ -578,9 +578,11 @@ interface Props {
   onSlidesChange: (slides: Slide[]) => void;
   brandColors?: { hex: string; role?: string }[];
   brandHandle?: string | null;
+  brandFontHeading?: string | null;
+  brandFontBody?: string | null;
 }
 
-export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, brandHandle }: Props) {
+export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, brandHandle, brandFontHeading, brandFontBody }: Props) {
   const B = deriveBrandTokens(brandColors, brandHandle);
   const [current, setCurrent] = useState(0);
   const [editing, setEditing] = useState(false);
@@ -671,7 +673,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
             slide: slides[i],
             idx: i,
             total: slides.length,
-            brand: { colors: brandColors, handle: brandHandle },
+            brand: { colors: brandColors, handle: brandHandle, fontHeading: brandFontHeading, fontBody: brandFontBody },
           }),
         });
         if (!res.ok) continue;

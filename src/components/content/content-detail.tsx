@@ -56,6 +56,8 @@ interface Props {
   brandName: string | null;
   brandColors?: { hex: string; role?: string }[];
   brandHandle?: string | null;
+  brandFontHeading?: string | null;
+  brandFontBody?: string | null;
   output: GenerationOutput;
 }
 
@@ -195,6 +197,8 @@ export function ContentDetail({
   brandName,
   brandColors,
   brandHandle,
+  brandFontHeading,
+  brandFontBody,
   output,
 }: Props) {
   const [status, setStatus] = useState<ContentStatus>(initialStatus);
@@ -495,6 +499,8 @@ export function ContentDetail({
             pieceId={pieceId}
             brandColors={brandColors}
             brandHandle={brandHandle}
+            brandFontHeading={brandFontHeading}
+            brandFontBody={brandFontBody}
             onSlidesChange={(next) => {
               setSlides(next);
             }}

@@ -44,18 +44,32 @@ export interface FontDef {
 
 /**
  * Retorna as fontes da marca para o ImageResponse.
- * Se alguma falhar, é omitida (o ImageResponse cai na fonte padrão).
+ *
+ * Truque: a fonte de TÍTULO escolhida pela marca é registrada com o nome
+ * interno "Playfair", e a de CORPO com "Inter" — assim os estilos do render
+ * (fontFamily: "Playfair" / "Inter") já a adotam SEM precisar editar cada slide.
+ * Aceita qualquer Google Font pelo nome; cai no padrão se falhar.
  */
-export async function getBrandFonts(): Promise<FontDef[]> {
-  const [playfair700, inter400, inter600] = await Promise.all([
-    loadGoogleFont("Playfair Display", 700),
-    loadGoogleFont("Inter", 400),
-    loadGoogleFont("Inter", 600),
+export async function getBrandFonts(
+  headingFamily?: string | null,
+  bodyFamily?: string | null
+): Promise<FontDef[]> {
+  const heading = headingFamily?.trim() || "Playfair Display";
+  const body = bodyFamily?.trim() || "Inter";
+
+  // Tenta a fonte da marca; se falhar, cai no padrão (mesmo nome interno).
+  const loadWithFallback = async (family: string, fallback: string, weight: number) =>
+    (await loadGoogleFont(family, weight)) ?? (await loadGoogleFont(fallback, weight));
+
+  const [head700, body400, body600] = await Promise.all([
+    loadWithFallback(heading, "Playfair Display", 700),
+    loadWithFallback(body, "Inter", 400),
+    loadWithFallback(body, "Inter", 600),
   ]);
 
   const fonts: FontDef[] = [];
-  if (playfair700) fonts.push({ name: "Playfair", data: playfair700, weight: 700, style: "normal" });
-  if (inter400) fonts.push({ name: "Inter", data: inter400, weight: 400, style: "normal" });
-  if (inter600) fonts.push({ name: "Inter", data: inter600, weight: 600, style: "normal" });
+  if (head700) fonts.push({ name: "Playfair", data: head700, weight: 700, style: "normal" });
+  if (body400) fonts.push({ name: "Inter", data: body400, weight: 400, style: "normal" });
+  if (body600) fonts.push({ name: "Inter", data: body600, weight: 600, style: "normal" });
   return fonts;
 }
