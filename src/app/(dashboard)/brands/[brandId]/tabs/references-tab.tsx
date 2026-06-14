@@ -111,7 +111,7 @@ function PostCard({ post }: { post: RefPost }) {
               <ExternalLink className="size-2.5" /> Ver post
             </a>
             <Link
-              href={`/generate?ref=${encodeURIComponent(post.title.slice(0, 120))}&format=${post.format}`}
+              href={`/generate?topic=${encodeURIComponent(post.title.slice(0, 180))}&format=${post.format}`}
               className="flex-1 flex items-center justify-center gap-1 rounded bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] py-1 transition-colors"
             >
               <Wand2 className="size-2.5" /> Gerar similar

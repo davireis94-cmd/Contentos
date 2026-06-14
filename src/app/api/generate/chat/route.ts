@@ -78,11 +78,12 @@ export async function POST(request: NextRequest) {
   if (!body.brandId) return NextResponse.json({ error: "brandId obrigatório" }, { status: 400 });
 
   const [{ data: brand }, { data: voice }] = await Promise.all([
-    supabase.from("brands").select("name, description, identity").eq("id", body.brandId).single(),
+    supabase.from("brands").select("name, description, identity, workspace_id").eq("id", body.brandId).single(),
     supabase.from("brand_voice").select("tone, target_audience, content_pillars, characteristic_phrases, forbidden_words").eq("brand_id", body.brandId).maybeSingle(),
   ]);
 
   if (!brand) return NextResponse.json({ error: "Marca não encontrada" }, { status: 404 });
+  const workspaceId = (brand as { workspace_id: string }).workspace_id;
 
   const identity = (brand.identity ?? {}) as { brain_extras?: BrandExtras; performance_insights?: PerformanceInsights };
   const extras = identity.brain_extras ?? {};
@@ -147,21 +148,38 @@ BRIEFING:
     if (!genMatch) throw new Error("IA não retornou JSON");
 
     const output = JSON.parse(genMatch[0]);
-    // Normalize: ensure slides array
-    if (!output.slides) {
+    // Normaliza para o formato esperado pela UI e pela tabela.
+    if (!Array.isArray(output.slides) || output.slides.length === 0) {
       output.slides = [{ title: output.title ?? brief.topic, body: output.body ?? "", cta: output.cta }];
     }
+    // Garante index sequencial em cada slide (StreamOutput/render esperam).
+    output.slides = output.slides.map((s: Record<string, unknown>, i: number) => ({ index: i, ...s }));
+    if (!Array.isArray(output.hashtags)) output.hashtags = [];
+    if (typeof output.caption !== "string") output.caption = "";
     output.format = brief.format ?? "single";
 
-    // Save to content_pieces
-    const { data: piece } = await supabase.from("content_pieces").insert({
-      workspace_id: (await supabase.from("brands").select("workspace_id").eq("id", body.brandId).single()).data?.workspace_id,
-      brand_id: body.brandId,
-      title: brief.topic.slice(0, 100),
-      format: output.format,
-      output: JSON.stringify(output),
-      status: "draft",
-    }).select("id").single();
+    // Salva em content_pieces no MESMO formato da geração normal (colunas
+    // slides/caption/hashtags, status "scripted") — não existe coluna "output".
+    const validObjectives = ["educate", "engage", "sell", "inspire"];
+    const objective = validObjectives.includes(brief.objective) ? brief.objective : "engage";
+    const { data: piece, error: insertError } = await supabase
+      .from("content_pieces")
+      .insert({
+        workspace_id: workspaceId,
+        brand_id: body.brandId,
+        created_by: user.id,
+        title: brief.topic.slice(0, 120),
+        format: output.format,
+        objective,
+        status: "scripted",
+        slides: output.slides,
+        caption: output.caption,
+        hashtags: output.hashtags,
+      })
+      .select("id")
+      .single();
+
+    if (insertError) console.error("[generate/chat] insert falhou:", insertError.message);
 
     return NextResponse.json({
       message: parsed.message,
