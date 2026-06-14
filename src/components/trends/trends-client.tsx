@@ -81,15 +81,24 @@ function formatCompact(n: number): string {
   return String(n);
 }
 
-/** Detecção simples de idioma pelo texto (pt/en/es/outro). */
+/** Detecção de idioma por pontuação de marcadores EXCLUSIVOS de cada idioma. */
 function detectLang(text: string): "pt" | "en" | "es" | "other" {
   const s = ` ${text.toLowerCase()} `;
-  if (/[ãõ]/.test(s) || /\b(você|voce|não|nao|com|que|para|porque|içã|ção|ões|dica|como)\b/.test(s))
-    return "pt";
-  if (/[ñ¿¡]/.test(s) || /\b(qué|cómo|para|pero|esto|como|los|las|una|tu|más)\b/.test(s))
-    return "es";
-  if (/\b(the|and|you|for|with|this|that|your|how|are|what|to|of)\b/.test(s)) return "en";
-  return "other";
+  const count = (re: RegExp) => (s.match(re) ?? []).length;
+  // Marcadores que NÃO se confundem entre PT e ES.
+  const pt =
+    count(/[ãõ]/g) * 2 +
+    count(/ç/g) +
+    count(/\b(você|voce|não|nao|são|sao|então|entao|também|tambem|aqui|isso|gente|trabalhar|melhores|dica|conteúdo|conteudo|negócio|negocio|é)\b/g);
+  const es =
+    count(/[ñ¿¡]/g) * 2 +
+    count(/\b(nuestra|nuestro|nuestros|valientes|errores|trabajar|también|cómo|qué|seres|personalidad|hacer|mejor|ellos|esto|pero|muy|años)\b/g);
+  const en = count(/\b(the|and|you|for|with|this|that|your|how|are|what|of|to|is)\b/g);
+  const max = Math.max(pt, es, en);
+  if (max === 0) return "other";
+  if (pt === max) return "pt";
+  if (es === max) return "es";
+  return "en";
 }
 
 /** Pontuação de desempenho p/ ordenar as tendências (melhores primeiro). */
