@@ -24,7 +24,7 @@ export default async function BrandDetailPage({
 }) {
   const { brandId } = await params;
   const { tab: tabParam } = await searchParams;
-  const activeTab = VALID_TABS.includes(tabParam ?? "") ? tabParam! : "identity";
+  const activeTab = VALID_TABS.includes(tabParam ?? "") ? tabParam! : "interview";
 
   const { supabase, workspace } = await getSessionContext();
   if (!workspace) return null;
@@ -92,6 +92,7 @@ export default async function BrandDetailPage({
 
         <Tabs key={activeTab} defaultValue={activeTab} className="max-w-2xl">
           <TabsList>
+            <TabsTrigger value="interview">✦ Construir (chat)</TabsTrigger>
             <TabsTrigger value="identity">Identidade</TabsTrigger>
             <TabsTrigger value="voice">Tom de voz</TabsTrigger>
             <TabsTrigger value="examples">
@@ -103,7 +104,6 @@ export default async function BrandDetailPage({
             <TabsTrigger value="documents">
               Documentos ({documents?.length ?? 0})
             </TabsTrigger>
-            <TabsTrigger value="interview">Entrevista ✦</TabsTrigger>
             <TabsTrigger value="suggestions">Sugestões ✦</TabsTrigger>
           </TabsList>
 

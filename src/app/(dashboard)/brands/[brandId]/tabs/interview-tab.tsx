@@ -28,10 +28,13 @@ export function InterviewTab({
   const [started, setStarted] = useState(false);
   const [done, setDone] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [progress, setProgress] = useState<{ filled: number; total: number; phase: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const filled = extrasFilledCount(initialExtras);
+  const filled = progress?.filled ?? extrasFilledCount(initialExtras);
+  const total = progress?.total ?? 12;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -53,6 +56,8 @@ export function InterviewTab({
         setMessages((m) => [...m, { role: "assistant", content: `Ops: ${data.error}` }]);
       } else {
         setMessages((m) => [...m, { role: "assistant", content: data.message, updated: data.updated }]);
+        setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
+        if (data.progress) setProgress(data.progress);
         if (data.done) setDone(true);
         if (data.updated?.length) router.refresh();
       }
@@ -63,18 +68,24 @@ export function InterviewTab({
     }
   }
 
-  function start() {
+  // Abre o chat automaticamente ao entrar na aba.
+  useEffect(() => {
     setStarted(true);
     void send([]);
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  function handleSend() {
-    const text = input.trim();
-    if (!text || loading) return;
-    const next: ChatMsg[] = [...messages, { role: "user", content: text }];
+  function sendText(text: string) {
+    if (!text.trim() || loading) return;
+    setSuggestions([]);
+    const next: ChatMsg[] = [...messages, { role: "user", content: text.trim() }];
     setMessages(next);
     setInput("");
     void send(next);
+  }
+
+  function handleSend() {
+    sendText(input);
   }
 
   async function handleFile(file: File) {
@@ -117,26 +128,24 @@ export function InterviewTab({
               Converse com a IA e ela monta seu cérebro de marca — usando seus documentos
               quando existirem e sugerindo o que falta. Responda no seu ritmo.
             </p>
-            <p className="text-[11px] text-muted-foreground mt-2">
-              Estratégia avançada: <b>{filled}/7</b> linhas preenchidas
+            {/* Barra de progresso */}
+            <div className="mt-2.5">
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
+                <span>{progress?.phase ?? "Construindo seu cérebro"}</span>
+                <span><b>{filled}</b>/{total}</span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-500"
+                  style={{ width: `${Math.round((filled / total) * 100)}%` }}
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-2 inline-flex items-center gap-1">
+              <FileText className="size-3" /> Use o <b>+</b> abaixo pra anexar documentos — o chat lê e preenche sozinho.
             </p>
           </div>
         </div>
-
-        {!started && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={start} disabled={loading}>
-              {loading ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Sparkles className="mr-1.5 size-3.5" />}
-              {filled > 0 ? "Continuar construção" : "Começar"}
-            </Button>
-            <a
-              href={`/brands/${brandId}?tab=documents`}
-              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-            >
-              <FileText className="size-3.5" /> Tem documentos? Anexe na aba Documentos — o chat usa eles.
-            </a>
-          </div>
-        )}
       </div>
 
       {/* Chat */}
@@ -177,6 +186,30 @@ export function InterviewTab({
             <p className="flex items-center gap-1.5 text-sm text-emerald-600 font-medium">
               <Check className="size-4" /> Cérebro construído! Você pode continuar refinando quando quiser.
             </p>
+          )}
+
+          {/* Respostas rápidas */}
+          {!loading && !done && messages.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {suggestions.map((s, i) => (
+                <button
+                  key={`s${i}`}
+                  onClick={() => sendText(s)}
+                  className="rounded-full border bg-card px-3 py-1 text-xs hover:bg-muted transition-colors"
+                >
+                  {s}
+                </button>
+              ))}
+              {["Me dá um exemplo", "Não sei 🤔", "Pular"].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => sendText(s)}
+                  className="rounded-full border border-dashed px-3 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           )}
 
           {/* Input */}

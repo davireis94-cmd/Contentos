@@ -42,8 +42,9 @@ REGRAS DA CONVERSA:
 
 FORMATO DE SAÍDA — responda SEMPRE só com JSON válido, sem markdown:
 {
-  "message": "sua próxima fala no chat (acolhedora, 1 pergunta)",
+  "message": "sua próxima fala no chat (acolhedora, 1 pergunta, com 1 exemplo curto entre parênteses se ajudar)",
   "patch": { campos aprendidos AGORA, só os que tiver certeza },
+  "suggestions": ["2 a 4 respostas curtas/plausíveis pra pessoa TOCAR e responder rápido (adaptadas à pergunta e à marca)"],
   "done": false
 }
 Campos válidos do patch: description, target_audience, content_pillars[], characteristic_phrases[], forbidden_words[], enemy, strong_opinions[], stories[], audience_pains[], audience_desires[], offers[], style_references[].
@@ -110,7 +111,7 @@ ${docText ? `\nDOCUMENTOS DA MARCA (use para pré-preencher e sugerir):\n${docTe
     ? body.messages
     : [{ role: "user", content: "Oi! Vamos construir meu Brand Brain." }];
 
-  let parsed: { message: string; patch?: Patch; done?: boolean };
+  let parsed: { message: string; patch?: Patch; suggestions?: string[]; done?: boolean };
   try {
     const msg = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
@@ -183,9 +184,39 @@ ${docText ? `\nDOCUMENTOS DA MARCA (use para pré-preencher e sugerir):\n${docTe
     }
   }
 
+  // Progresso (pós-patch): 5 campos de voz + 7 linhas de estratégia = 12.
+  const eff = {
+    description: brand.description || p.description,
+    audience: voice?.target_audience || p.target_audience,
+    pillars: (voiceUpdate.content_pillars as string[]) ?? voice?.content_pillars ?? [],
+    phrases: (voiceUpdate.characteristic_phrases as string[]) ?? voice?.characteristic_phrases ?? [],
+    forbidden: (voiceUpdate.forbidden_words as string[]) ?? voice?.forbidden_words ?? [],
+  };
+  let filled = 0;
+  if (eff.description) filled++;
+  if (eff.audience) filled++;
+  if (eff.pillars.length) filled++;
+  if (eff.phrases.length) filled++;
+  if (eff.forbidden.length) filled++;
+  filled += [
+    newExtras.enemy,
+    newExtras.strong_opinions?.length,
+    newExtras.stories?.length,
+    newExtras.audience_pains?.length,
+    newExtras.audience_desires?.length,
+    newExtras.offers?.length,
+    newExtras.style_references?.length,
+  ].filter(Boolean).length;
+  const total = 12;
+  const phase = filled <= 2 ? "Fundação" : filled <= 6 ? "Essência" : filled <= 9 ? "Prova & conexão" : "Reta final";
+
   return NextResponse.json({
     message: parsed.message ?? "Vamos continuar?",
     done: parsed.done ?? false,
     updated,
+    suggestions: Array.isArray(parsed.suggestions)
+      ? parsed.suggestions.filter((s) => typeof s === "string" && s.trim()).slice(0, 4)
+      : [],
+    progress: { filled, total, phase },
   });
 }
