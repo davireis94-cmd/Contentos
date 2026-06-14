@@ -25,6 +25,7 @@ import {
 import { StreamOutput, type GenerationState } from "./stream-output";
 import { UrlImporter, type ImportedContent } from "./url-importer";
 import type { GenerationOutput } from "@/lib/validations/generation";
+import { FRAMEWORKS } from "@/lib/ai/frameworks";
 
 interface Brand {
   id: string;
@@ -149,6 +150,7 @@ export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, 
   );
   const [showExtRef, setShowExtRef] = useState(!!defaultExt);
   const [importedRef, setImportedRef] = useState<ImportedContent | null>(null);
+  const [framework, setFramework] = useState("");
 
   const filteredPieces = recentPieces.filter((p) => {
     const matchesSearch =
@@ -229,6 +231,7 @@ export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, 
           ? `${tool} — ${VIDEO_TYPE_LABELS[videoType] ?? videoType}`
           : tool.trim()
         : undefined,
+      framework: framework || undefined,
       referenceIds: selectedRefs.length > 0 ? selectedRefs : undefined,
       importedRef: importedRef ?? undefined,
       externalRef: trendExternalRef,
@@ -385,6 +388,36 @@ export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, 
               <p className="text-xs text-muted-foreground">
                 Quanto mais específico, mais certeiro o conteúdo.
               </p>
+            </div>
+
+            {/* Framework de copy */}
+            <div className="space-y-2">
+              <Label>Framework <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+              <div className="flex flex-wrap gap-1.5">
+                {FRAMEWORKS.map((fw) => {
+                  const active = framework === fw.id;
+                  return (
+                    <button
+                      key={fw.id}
+                      type="button"
+                      onClick={() => setFramework(active ? "" : fw.id)}
+                      title={fw.description}
+                      className={`rounded-full border px-3 py-1 text-xs transition-all ${
+                        active
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                      }`}
+                    >
+                      {fw.emoji} {fw.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {framework && (
+                <p className="text-xs text-muted-foreground">
+                  {FRAMEWORKS.find((f) => f.id === framework)?.description}
+                </p>
+              )}
             </div>
 
             {/* Reference posts — modal picker */}

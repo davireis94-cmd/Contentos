@@ -69,6 +69,7 @@ export const generationInputSchema = z.object({
     .enum(["formal", "conversational", "authority", "minimalist"])
     .optional(),
   productionTool: z.string().max(100).optional(),
+  framework: z.string().max(50).optional(),
   referenceIds: z.array(z.string().uuid()).max(3).optional(),
   externalRef: z.string().max(5000).optional(),
   importedRef: importedContentSchema.optional(),

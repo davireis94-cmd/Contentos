@@ -1,6 +1,7 @@
 import type { GenerationInput } from "@/lib/validations/generation";
 import { renderExtrasForPrompt, type BrandExtras } from "@/lib/brand/extras";
 import { renderPerformanceForPrompt, type PerformanceInsights } from "@/lib/brand/performance";
+import { renderFrameworkForPrompt } from "@/lib/ai/frameworks";
 
 interface DocumentContext {
   resumo?: string;
@@ -323,6 +324,7 @@ Crie exatamente ${input.format === "single" ? 1 : input.slideCount} slide(s). Ha
 
 export function buildUserPrompt(input: GenerationInput): string {
   const objectiveDesc = OBJECTIVE_LABELS[input.objective] ?? input.objective;
+  const frameworkSection = renderFrameworkForPrompt(input.framework);
   return `Crie uma peça de conteúdo para Instagram sobre o tópico abaixo.
 Meta: que seja uma das melhores peças já feitas sobre esse tema — específica, com perspectiva real, que o leitor salve ou compartilhe.
 
@@ -335,6 +337,7 @@ SLIDES: ${input.format === "single" ? 1 : input.slideCount}${
   }${
     input.toneOverride ? `\nTOM ESPECIAL: ${TONE_DESCRIPTIONS[input.toneOverride]}` : ""
   }
+${frameworkSection ? `\n${frameworkSection}\n` : ""}
 
 Antes de gerar o JSON, responda internamente:
 - Qual é o ângulo contra-intuitivo ou surpreendente sobre este tópico?
