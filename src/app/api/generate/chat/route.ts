@@ -4,6 +4,7 @@ import { anthropic } from "@/lib/ai/anthropic";
 import { type BrandExtras } from "@/lib/brand/extras";
 import { renderExtrasForPrompt } from "@/lib/brand/extras";
 import { renderPerformanceForPrompt, type PerformanceInsights } from "@/lib/brand/performance";
+import { extractJson } from "@/lib/ai/json";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -111,13 +112,12 @@ ${renderExtrasForPrompt(extras)}${perf ? `\n\nO QUE FUNCIONA COM ESTE PÚBLICO (
   });
 
   const raw = collectorMsg.content[0]?.type === "text" ? collectorMsg.content[0].text : "";
-  const match = raw.match(/\{[\s\S]*\}/);
   let parsed: { message: string; ready: boolean; brief?: Record<string, string> | null } = {
     message: raw || "O que você quer criar hoje?",
     ready: false,
   };
   try {
-    if (match) parsed = JSON.parse(match[0]);
+    parsed = extractJson(raw);
   } catch { /* keep default */ }
 
   if (!parsed.ready || !parsed.brief) {
@@ -144,16 +144,13 @@ BRIEFING:
     });
 
     const genRaw = genMsg.content[0]?.type === "text" ? genMsg.content[0].text : "";
-    const genMatch = genRaw.match(/\{[\s\S]*\}/);
-    if (!genMatch) throw new Error("IA não retornou JSON");
-
-    const output = JSON.parse(genMatch[0]);
+    const output = extractJson<Record<string, unknown> & { slides?: unknown[]; hashtags?: unknown[]; caption?: unknown; title?: string; body?: string; cta?: string; format?: string }>(genRaw);
     // Normaliza para o formato esperado pela UI e pela tabela.
     if (!Array.isArray(output.slides) || output.slides.length === 0) {
       output.slides = [{ title: output.title ?? brief.topic, body: output.body ?? "", cta: output.cta }];
     }
     // Garante index sequencial em cada slide (StreamOutput/render esperam).
-    output.slides = output.slides.map((s: Record<string, unknown>, i: number) => ({ index: i, ...s }));
+    output.slides = (output.slides as Record<string, unknown>[]).map((s, i) => ({ index: i, ...s }));
     if (!Array.isArray(output.hashtags)) output.hashtags = [];
     if (typeof output.caption !== "string") output.caption = "";
     output.format = brief.format ?? "single";

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { anthropic } from "@/lib/ai/anthropic";
+import { extractJson } from "@/lib/ai/json";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -89,9 +90,7 @@ export async function POST(request: NextRequest) {
     });
 
     const raw = msg.content[0]?.type === "text" ? msg.content[0].text : "";
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("Sem JSON");
-    const humanized = JSON.parse(match[0]) as HumanizeOutput;
+    const humanized = extractJson<HumanizeOutput>(raw);
 
     // Recompõe preservando imageUrl/index originais e hashtags intactas.
     const slides = (humanized.slides ?? []).map((s, i) => ({

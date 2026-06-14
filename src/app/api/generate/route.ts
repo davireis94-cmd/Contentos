@@ -7,6 +7,7 @@ import {
   generationOutputSchema,
 } from "@/lib/validations/generation";
 import { trackUsage } from "@/lib/billing/track";
+import { extractJson } from "@/lib/ai/json";
 import type { Operation } from "@/lib/billing/pricing";
 // generationOutputSchema used for validating Claude's response below
 
@@ -214,10 +215,7 @@ export async function POST(request: NextRequest) {
 
         let parsed;
         try {
-          const jsonMatch = fullText.match(/\{[\s\S]*\}/);
-          if (!jsonMatch) throw new Error("Sem JSON na resposta");
-
-          const rawObj = JSON.parse(jsonMatch[0]);
+          const rawObj = extractJson<Record<string, unknown>>(fullText);
 
           // Guarantee format/platform match input — don't trust Claude's echoed values
           rawObj.format = input.format;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { anthropic } from "@/lib/ai/anthropic";
+import { extractJson } from "@/lib/ai/json";
 import { type BrandExtras } from "@/lib/brand/extras";
 
 export const runtime = "nodejs";
@@ -134,8 +135,11 @@ ${docText ? `\nDOCUMENTOS DA MARCA (use para pré-preencher e sugerir):\n${docTe
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
     });
     const raw = msg.content[0]?.type === "text" ? msg.content[0].text : "";
-    const match = raw.match(/\{[\s\S]*\}/);
-    parsed = match ? JSON.parse(match[0]) : { message: raw || "Pode me contar mais sobre sua marca?" };
+    try {
+      parsed = extractJson(raw);
+    } catch {
+      parsed = { message: raw || "Pode me contar mais sobre sua marca?" };
+    }
   } catch {
     return NextResponse.json({ error: "Falha ao conversar com a IA" }, { status: 502 });
   }
