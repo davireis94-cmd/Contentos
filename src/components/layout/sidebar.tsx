@@ -12,6 +12,7 @@ import {
   Library,
   LogOut,
   Sparkles,
+  Star,
   TrendingUp,
   Wand2,
 } from "lucide-react";
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { href: "/brands", activePath: "/brands", label: "Brand Brain", icon: Sparkles },
   { href: "/generate", activePath: "/generate", label: "Gerar conteúdo", icon: Wand2 },
   { href: "/generate?ext=1", activePath: "none", label: "Recriar post", icon: Globe },
+  { href: "/references", activePath: "/references", label: "Referências", icon: Star },
   { href: "/trends", activePath: "/trends", label: "Tendências", icon: TrendingUp },
   { href: "/calendar", activePath: "/calendar", label: "Calendário", icon: Calendar },
   { href: "/templates", activePath: "/templates", label: "Templates", icon: LayoutGrid },
