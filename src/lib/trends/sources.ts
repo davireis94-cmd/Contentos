@@ -7,6 +7,7 @@ export interface NicheConfig {
   id: string;
   label: string;
   tag?: string; // etiqueta curta exibida no card (#tag). Default: id
+  hashtag?: string; // hashtag real p/ Instagram/TikTok (sem #). Default: derivado da query
   youtubeQuery: string; // termo de busca no YouTube (mais relevante que só categoria)
   youtubeCategories: number[];
   subreddits: string[]; // vazio = buscar no Reddit por palavra-chave (search)

@@ -22,6 +22,7 @@ interface TtItem {
 
 /** Hashtag real (palavra única, sem espaços/acentos) a partir da busca do nicho. */
 function hashtagOf(niche: NicheConfig): string {
+  if (niche.hashtag && niche.hashtag.length > 2) return niche.hashtag;
   return (
     niche.youtubeQuery
       .toLowerCase()

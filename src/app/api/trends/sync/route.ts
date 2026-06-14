@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { syncTrends, type TrendPlatform } from "@/lib/trends/sync";
 import { brandNiches, NICHES, type NicheConfig } from "@/lib/trends/sources";
+import { suggestNiches } from "@/lib/trends/ai-niches";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -50,7 +51,20 @@ async function nichesForUser(request: NextRequest): Promise<NicheConfig[]> {
       .eq("brand_id", brand.id)
       .maybeSingle();
 
-    // Cada pilar vira uma busca; complementa com público-alvo / descrição.
+    // 1ª opção: IA traduz a marca em nichos + hashtags reais e populares.
+    const brandContext = [
+      brand.name && `Marca: ${brand.name}`,
+      brand.description && `Descrição: ${brand.description}`,
+      voice?.target_audience && `Público: ${voice.target_audience}`,
+      voice?.content_pillars?.length && `Pilares: ${voice.content_pillars.join(", ")}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const aiNiches = await suggestNiches(brandContext);
+    if (aiNiches.length > 0) return aiNiches;
+
+    // Fallback: extração simples por palavra-chave dos pilares.
     const queries = [
       ...(voice?.content_pillars ?? []),
       voice?.target_audience,
