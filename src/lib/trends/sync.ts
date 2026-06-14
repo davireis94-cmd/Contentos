@@ -18,6 +18,7 @@ export interface SyncResult {
   instagram: number;
   tiktok: number;
   total: number;
+  niches?: string[]; // etiquetas/hashtags usadas na busca (p/ visibilidade)
   error?: string;
 }
 
@@ -80,14 +81,28 @@ export async function syncTrends(
     }),
   ]);
 
+  const usedNiches = Array.from(new Set(niches.map((n) => n.tag ?? n.id)));
+
   const all: FetchedTrend[] = [...youtube, ...reddit, ...instagram, ...tiktok];
   if (all.length === 0) {
     return {
       ...empty,
+      niches: usedNiches,
       error: errors.length
         ? errors.join(" | ")
         : "Nenhuma tendência coletada (nada retornado da fonte)",
     };
+  }
+
+  // Limpa o lixo antigo: remove as tendências globais (auto) das plataformas que
+  // acabamos de atualizar com sucesso, pra cada busca SUBSTITUIR a anterior.
+  const refreshed = Array.from(new Set(all.map((t) => t.source)));
+  for (const src of refreshed) {
+    await admin
+      .from("benchmark_content")
+      .delete()
+      .eq("source", src)
+      .is("workspace_id", null);
   }
 
   const now = new Date().toISOString();
@@ -123,8 +138,8 @@ export async function syncTrends(
   };
 
   if (error) {
-    return { ...counts, total: 0, error: error.message };
+    return { ...counts, total: 0, niches: usedNiches, error: error.message };
   }
 
-  return { ...counts, total: all.length };
+  return { ...counts, total: all.length, niches: usedNiches };
 }

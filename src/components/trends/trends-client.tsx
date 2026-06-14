@@ -852,14 +852,15 @@ export function TrendsClient({
       const data = await res.json();
       if (!res.ok) {
         setSyncMsg(data.error ?? "Falha ao atualizar");
-      } else if (platformKey === "instagram") {
-        setSyncMsg(`${data.instagram} tendências do Instagram coletadas`);
-        router.refresh();
-      } else if (platformKey === "tiktok") {
-        setSyncMsg(`${data.tiktok} tendências do TikTok coletadas`);
-        router.refresh();
       } else {
-        setSyncMsg(`${data.total} tendências atualizadas (YT ${data.youtube} · Reddit ${data.reddit})`);
+        const nichePart = data.niches?.length ? ` · buscando: ${data.niches.map((n: string) => `#${n}`).join(" ")}` : "";
+        if (platformKey === "instagram") {
+          setSyncMsg(`${data.instagram} tendências do Instagram${nichePart}`);
+        } else if (platformKey === "tiktok") {
+          setSyncMsg(`${data.tiktok} tendências do TikTok${nichePart}`);
+        } else {
+          setSyncMsg(`${data.total} atualizadas (YT ${data.youtube} · Reddit ${data.reddit})${nichePart}`);
+        }
         router.refresh();
       }
     } catch {
