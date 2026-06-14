@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ChevronDown, Check, Library, Search, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -99,39 +99,6 @@ const FORMAT_LABELS: Record<string, string> = {
   single: "Post único",
 };
 
-const VIDEO_TYPES = [
-  { value: "talking_head", label: "Com pessoa (talking head)" },
-  { value: "motion", label: "Sem pessoa — motion/texto" },
-  { value: "ai_gen", label: "IA generativa" },
-  { value: "cinematic", label: "Cinematográfico" },
-];
-
-const VIDEO_TYPE_LABELS: Record<string, string> = {
-  talking_head: "com pessoa",
-  motion: "motion/texto",
-  ai_gen: "IA generativa",
-  cinematic: "cinematográfico",
-};
-
-const TOOL_OPTIONS: Record<string, Record<string, string[]>> = {
-  carousel: { _: ["Canva", "Figma", "PowerPoint", "Adobe Express"] },
-  single: { _: ["Canva", "Photoshop", "Figma", "Adobe Express"] },
-  story: {
-    talking_head: ["CapCut", "Canva", "Adobe Express"],
-    motion: ["CapCut", "Canva", "After Effects"],
-    ai_gen: ["Runway", "Kling", "CapCut"],
-    cinematic: ["DaVinci Resolve", "CapCut", "Premiere Pro"],
-    _: ["CapCut", "Canva", "Adobe Express"],
-  },
-  reel: {
-    talking_head: ["CapCut", "Premiere Pro", "DaVinci Resolve"],
-    motion: ["CapCut", "After Effects", "Jitter", "Canva"],
-    ai_gen: ["Runway", "Kling", "Pika", "CapCut"],
-    cinematic: ["DaVinci Resolve", "Premiere Pro", "CapCut"],
-    _: ["CapCut", "Canva", "Premiere Pro"],
-  },
-};
-
 const VALID_FORMATS = ["carousel", "reel", "story", "single"];
 
 export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, defaultTopic, defaultExt, defaultFormat, defaultObjective, trendContext }: Props) {
@@ -140,9 +107,6 @@ export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, 
   });
   const [platform, setPlatform] = useState("instagram");
   const [format, setFormat] = useState(defaultFormat && VALID_FORMATS.includes(defaultFormat) ? defaultFormat : "carousel");
-  const [videoType, setVideoType] = useState("");
-  const [tool, setTool] = useState("Canva");
-  const [customTool, setCustomTool] = useState(false);
   const [refPickerOpen, setRefPickerOpen] = useState(false);
   const [refSearch, setRefSearch] = useState("");
   const [refFormatFilter, setRefFormatFilter] = useState("all");
@@ -164,23 +128,6 @@ export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, 
     const matchesFormat = refFormatFilter === "all" || p.format === refFormatFilter;
     return matchesSearch && matchesFormat;
   });
-
-  // Reset tool selection when format changes
-  useEffect(() => {
-    setVideoType("");
-    setCustomTool(false);
-    const opts = TOOL_OPTIONS[format];
-    setTool(opts ? (opts._ ?? Object.values(opts)[0])?.[0] ?? "" : "");
-  }, [format]);
-
-  // Reset tool when video type changes
-  useEffect(() => {
-    if (!videoType) return;
-    setCustomTool(false);
-    const opts = TOOL_OPTIONS[format];
-    const typeOpts = opts?.[videoType] ?? opts?._ ?? [];
-    setTool(typeOpts[0] ?? "");
-  }, [videoType, format]);
 
   function togglePending(id: string) {
     setPendingRefs((prev) => {
@@ -230,11 +177,7 @@ export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, 
         (fd.get("toneOverride") as string) === "__default__"
           ? undefined
           : (fd.get("toneOverride") as string) || undefined,
-      productionTool: tool.trim()
-        ? videoType
-          ? `${tool} — ${VIDEO_TYPE_LABELS[videoType] ?? videoType}`
-          : tool.trim()
-        : undefined,
+      productionTool: undefined,
       framework: framework || undefined,
       referenceIds: selectedRefs.length > 0 ? selectedRefs : undefined,
       importedRef: importedRef ?? undefined,
@@ -651,83 +594,6 @@ export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, 
                   disabled={format === "single"}
                 />
               </div>
-            </div>
-
-            {/* Video type — only for reel/story */}
-            {(format === "reel" || format === "story") && (
-              <div className="space-y-2">
-                <Label>Tipo de vídeo</Label>
-                <div className="flex flex-wrap gap-2">
-                  {VIDEO_TYPES.map((vt) => (
-                    <button
-                      key={vt.value}
-                      type="button"
-                      onClick={() => setVideoType(videoType === vt.value ? "" : vt.value)}
-                      className={`rounded-full border px-3 py-1 text-xs transition-all ${
-                        videoType === vt.value
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                      }`}
-                    >
-                      {vt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Production tool */}
-            <div className="space-y-2">
-              <Label>Ferramenta de produção</Label>
-              {(() => {
-                const opts = TOOL_OPTIONS[format];
-                const toolList = opts
-                  ? (videoType ? opts[videoType] : null) ?? opts._ ?? []
-                  : [];
-                return (
-                  <>
-                    <div className="flex flex-wrap gap-2">
-                      {toolList.map((t) => (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => { setTool(t); setCustomTool(false); }}
-                          className={`rounded-full border px-3 py-1 text-xs transition-all ${
-                            tool === t && !customTool
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => { setCustomTool(true); setTool(""); }}
-                        className={`rounded-full border px-3 py-1 text-xs transition-all ${
-                          customTool
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                        }`}
-                      >
-                        Outro
-                      </button>
-                    </div>
-                    {customTool && (
-                      <Input
-                        autoFocus
-                        value={tool}
-                        onChange={(e) => setTool(e.target.value)}
-                        placeholder="Ex: Premiere Pro, Notion, Figma…"
-                        className="text-sm"
-                      />
-                    )}
-                  </>
-                );
-              })()}
-              <p className="text-xs text-muted-foreground">
-                A IA inclui notas de produção específicas no roteiro para facilitar a execução.
-              </p>
             </div>
 
             {/* Tone override */}
