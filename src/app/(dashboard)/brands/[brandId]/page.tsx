@@ -133,6 +133,7 @@ export default async function BrandDetailPage({
           <TabsContent value="interview" className="mt-4">
             <InterviewTab
               brandId={brand.id}
+              workspaceId={workspace.id}
               initialExtras={
                 ((brand.identity ?? {}) as { brain_extras?: BrandExtras }).brain_extras ?? null
               }

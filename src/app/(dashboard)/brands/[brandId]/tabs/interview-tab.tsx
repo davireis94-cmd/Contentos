@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Sparkles, Send, Check, FileText } from "lucide-react";
+import { Loader2, Sparkles, Send, Check, FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { extrasFilledCount, type BrandExtras } from "@/lib/brand/extras";
 
@@ -14,9 +14,11 @@ interface ChatMsg {
 
 export function InterviewTab({
   brandId,
+  workspaceId,
   initialExtras,
 }: {
   brandId: string;
+  workspaceId: string;
   initialExtras: BrandExtras | null;
 }) {
   const router = useRouter();
@@ -25,6 +27,8 @@ export function InterviewTab({
   const [loading, setLoading] = useState(false);
   const [started, setStarted] = useState(false);
   const [done, setDone] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const filled = extrasFilledCount(initialExtras);
@@ -71,6 +75,32 @@ export function InterviewTab({
     setMessages(next);
     setInput("");
     void send(next);
+  }
+
+  async function handleFile(file: File) {
+    setUploading(true);
+    if (!started) setStarted(true);
+    setMessages((m) => [...m, { role: "user", content: `📎 Anexando: ${file.name}…` }]);
+    try {
+      const fd = new FormData();
+      fd.set("file", file);
+      fd.set("brandId", brandId);
+      fd.set("workspaceId", workspaceId);
+      const res = await fetch("/api/brand-documents", { method: "POST", body: fd });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Falha no upload");
+      const next: ChatMsg[] = [
+        ...messages,
+        { role: "user", content: `Anexei o documento "${file.name}". Use o conteúdo dele pra preencher e sugerir o que faltar.` },
+      ];
+      setMessages(next);
+      await send(next);
+    } catch (e) {
+      setMessages((m) => [...m, { role: "assistant", content: `Não consegui ler o arquivo: ${e instanceof Error ? e.message : "erro"}.` }]);
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
   }
 
   return (
@@ -150,7 +180,27 @@ export function InterviewTab({
           )}
 
           {/* Input */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-end">
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg,.webp"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void handleFile(f);
+              }}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              className="self-end"
+              onClick={() => fileRef.current?.click()}
+              disabled={loading || uploading}
+              title="Anexar documento (manual, estratégia, identidade…)"
+            >
+              {uploading ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+            </Button>
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
