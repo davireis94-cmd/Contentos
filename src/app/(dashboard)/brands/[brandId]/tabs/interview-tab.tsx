@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Sparkles, Send, Check, FileText, Plus } from "lucide-react";
+import { Loader2, Sparkles, Send, Check, FileText, Plus, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { extrasFilledCount, type BrandExtras } from "@/lib/brand/extras";
 
@@ -141,9 +141,19 @@ export function InterviewTab({
                 />
               </div>
             </div>
-            <p className="text-[11px] text-muted-foreground mt-2 inline-flex items-center gap-1">
-              <FileText className="size-3" /> Use o <b>+</b> abaixo pra anexar documentos — o chat lê e preenche sozinho.
-            </p>
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
+                <FileText className="size-3" /> Use o <b>+</b> abaixo pra anexar documentos — o chat lê e preenche sozinho.
+              </p>
+              <a
+                href={`/api/brand/export?brandId=${brandId}`}
+                download
+                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                title="Baixar Brand Brain completo (.txt)"
+              >
+                <Download className="size-3" /> Exportar
+              </a>
+            </div>
           </div>
         </div>
       </div>
