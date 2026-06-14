@@ -43,6 +43,7 @@ export interface TrendMetrics {
   likes?: number;
   comments?: number;
   ups?: number;
+  saved?: number;
   engagementRate?: number;
   velocityPerHour?: number;
 }
@@ -72,6 +73,19 @@ function formatCompact(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return String(n);
+}
+
+/** Pontuação de desempenho p/ ordenar as tendências (melhores primeiro). */
+function perfScore(t: Trend): number {
+  const m = t.metrics ?? {};
+  return (
+    (m.views ?? 0) +
+    (m.ups ?? 0) * 30 +
+    (m.likes ?? 0) * 20 +
+    (m.comments ?? 0) * 50 +
+    (m.saved ?? 0) * 80 +
+    (m.velocityPerHour ?? 0) * 5
+  );
 }
 
 const FORMAT_LABELS: Record<string, string> = {
@@ -678,7 +692,9 @@ export function TrendsClient({
   const router = useRouter();
   const [platform, setPlatform] = useState("all");
   const [sub, setSub] = useState("all");
-  const [nicheOnly, setNicheOnly] = useState(brandKeywords.length > 0);
+  // Coleta já é feita por nicho (hashtags/buscas da marca), então o filtro
+  // por palavra-chave começa DESLIGADO para não cortar resultados válidos.
+  const [nicheOnly, setNicheOnly] = useState(false);
   const [search, setSearch] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
@@ -744,6 +760,9 @@ export function TrendsClient({
         }
         return true;
       });
+
+  // Melhores primeiro (maior alcance/engajamento no topo).
+  filtered.sort((a, b) => perfScore(b) - perfScore(a));
 
   // Ordena por qualidade: velocidade (views/h) e engajamento, não só volume bruto.
   // Referências manuais ("Minhas refs") preservam a ordem de adição.
