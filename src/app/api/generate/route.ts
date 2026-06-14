@@ -144,6 +144,9 @@ export async function POST(request: NextRequest) {
           extras: ((brand as { identity?: { brain_extras?: unknown } }).identity?.brain_extras ?? null) as
             | import("@/lib/brand/extras").BrandExtras
             | null,
+          performance: ((brand as { identity?: { performance_insights?: unknown } }).identity?.performance_insights ?? null) as
+            | import("@/lib/brand/performance").PerformanceInsights
+            | null,
         };
 
         const systemPrompt = buildSystemPrompt(brandContext, input);

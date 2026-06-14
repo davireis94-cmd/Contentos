@@ -1,5 +1,6 @@
 import type { GenerationInput } from "@/lib/validations/generation";
 import { renderExtrasForPrompt, type BrandExtras } from "@/lib/brand/extras";
+import { renderPerformanceForPrompt, type PerformanceInsights } from "@/lib/brand/performance";
 
 interface DocumentContext {
   resumo?: string;
@@ -35,6 +36,7 @@ interface BrandContext {
   references?: ReferencePost[];
   externalRef?: string;
   extras?: BrandExtras | null;
+  performance?: PerformanceInsights | null;
 }
 
 const OBJECTIVE_LABELS: Record<string, string> = {
@@ -278,6 +280,7 @@ Pilares de conteúdo: ${pillars}
 Frases características (incorpore quando encaixar naturalmente): ${phrases}
 Palavras PROIBIDAS (nunca aparecem): ${forbidden}
 ${renderExtrasForPrompt(brand.extras) ? `\n## ESTRATÉGIA DA MARCA (use para dar opinião, profundidade e direção)\n${renderExtrasForPrompt(brand.extras)}` : ""}
+${renderPerformanceForPrompt(brand.performance) ? `\n## O QUE FUNCIONA COM ESTE PÚBLICO (dados reais do Instagram — PRIORIDADE MÁXIMA)\nEstes padrões vêm do desempenho real dos posts desta marca. Use-os como guia forte para as decisões de gancho, formato e tema:\n${renderPerformanceForPrompt(brand.performance)}` : ""}
 
 ## EXEMPLOS DE POSTS REAIS DESTA MARCA
 ${examplesSection}

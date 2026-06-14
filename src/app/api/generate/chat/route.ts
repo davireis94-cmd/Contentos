@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { anthropic } from "@/lib/ai/anthropic";
 import { type BrandExtras } from "@/lib/brand/extras";
 import { renderExtrasForPrompt } from "@/lib/brand/extras";
+import { renderPerformanceForPrompt, type PerformanceInsights } from "@/lib/brand/performance";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -83,8 +84,9 @@ export async function POST(request: NextRequest) {
 
   if (!brand) return NextResponse.json({ error: "Marca não encontrada" }, { status: 404 });
 
-  const identity = (brand.identity ?? {}) as { brain_extras?: BrandExtras };
+  const identity = (brand.identity ?? {}) as { brain_extras?: BrandExtras; performance_insights?: PerformanceInsights };
   const extras = identity.brain_extras ?? {};
+  const perf = renderPerformanceForPrompt(identity.performance_insights);
 
   const brandCtx = `MARCA: ${brand.name}
 Descrição: ${brand.description || "(não definida)"}
@@ -93,7 +95,7 @@ Tom: ${voice?.tone || "(não definido)"}
 Pilares: ${voice?.content_pillars?.join(", ") || "(não definidos)"}
 Frases características: ${voice?.characteristic_phrases?.join(" | ") || "(nenhuma)"}
 Palavras proibidas: ${voice?.forbidden_words?.join(", ") || "(nenhuma)"}
-${renderExtrasForPrompt(extras)}`;
+${renderExtrasForPrompt(extras)}${perf ? `\n\nO QUE FUNCIONA COM ESTE PÚBLICO (dados reais — priorize):\n${perf}` : ""}`;
 
   const messages = body.messages.length
     ? body.messages
