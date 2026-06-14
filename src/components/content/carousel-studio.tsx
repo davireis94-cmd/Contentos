@@ -10,6 +10,7 @@ import {
   Loader2,
   Pencil,
   Send,
+  Upload,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -575,6 +576,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
   const [imgModel, setImgModel] = useState(IMAGE_MODEL_DEFS[0].key);
   const [genImg, setGenImg] = useState(false);
   const [imgError, setImgError] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   const currentSlide = slides[current];
 
@@ -606,6 +608,31 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
       setImgError("Erro de conexão");
     } finally {
       setGenImg(false);
+    }
+  }
+
+  async function handleUploadImage(file: File) {
+    setUploading(true);
+    setImgError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("pieceId", pieceId);
+      const res = await fetch("/api/images/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      if (res.ok && data.imageUrl) {
+        const next = slides.map((s) =>
+          s.index === currentSlide.index ? { ...s, imageUrl: data.imageUrl as string } : s
+        );
+        onSlidesChange(next);
+        startSave(() => void updateSlides(pieceId, next));
+      } else {
+        setImgError(data.error ?? "Falha ao fazer upload");
+      }
+    } catch {
+      setImgError("Erro de conexão");
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -1021,12 +1048,38 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
                         variant="outline"
                         className="flex-1 text-xs"
                         onClick={() => void handleGenerateImage()}
-                        disabled={genImg}
+                        disabled={genImg || uploading}
                       >
                         {genImg ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
                         Gerar outra
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={handleRemoveImage} disabled={genImg}>
+                      <label className="flex-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full text-xs pointer-events-none"
+                          disabled={genImg || uploading}
+                          asChild={false}
+                        >
+                          {uploading ? (
+                            <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                          ) : (
+                            <Upload className="mr-1.5 size-3.5" />
+                          )}
+                          Trocar foto
+                        </Button>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) void handleUploadImage(f);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                      <Button size="sm" variant="ghost" onClick={handleRemoveImage} disabled={genImg || uploading}>
                         <X className="size-3.5" />
                       </Button>
                     </div>
@@ -1034,8 +1087,39 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
                 ) : (
                   <div className="space-y-2">
                     <p className="text-[11px] text-muted-foreground">
-                      Gera um fundo fotográfico no estilo da marca e compõe o texto por cima.
+                      Suba sua própria foto ou gere um fundo no estilo da marca via IA.
                     </p>
+                    {/* Upload própria foto */}
+                    <label className="block">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full text-xs pointer-events-none"
+                        disabled={uploading || genImg}
+                        asChild={false}
+                      >
+                        {uploading ? (
+                          <><Loader2 className="mr-1.5 size-3.5 animate-spin" />Enviando foto…</>
+                        ) : (
+                          <><Upload className="mr-1.5 size-3.5" />Subir minha foto</>
+                        )}
+                      </Button>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) void handleUploadImage(f);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                    <div className="relative flex items-center gap-2 py-0.5">
+                      <div className="flex-1 h-px bg-border" />
+                      <span className="text-[10px] text-muted-foreground">ou gerar com IA</span>
+                      <div className="flex-1 h-px bg-border" />
+                    </div>
                     <div className="flex flex-wrap gap-1.5">
                       {IMAGE_MODEL_DEFS.map((m) => (
                         <button
@@ -1056,7 +1140,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
                       size="sm"
                       className="w-full text-xs"
                       onClick={() => void handleGenerateImage()}
-                      disabled={genImg}
+                      disabled={genImg || uploading}
                     >
                       {genImg ? (
                         <>
