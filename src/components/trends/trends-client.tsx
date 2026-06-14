@@ -75,6 +75,17 @@ function formatCompact(n: number): string {
   return String(n);
 }
 
+/** Detecção simples de idioma pelo texto (pt/en/es/outro). */
+function detectLang(text: string): "pt" | "en" | "es" | "other" {
+  const s = ` ${text.toLowerCase()} `;
+  if (/[ãõ]/.test(s) || /\b(você|voce|não|nao|com|que|para|porque|içã|ção|ões|dica|como)\b/.test(s))
+    return "pt";
+  if (/[ñ¿¡]/.test(s) || /\b(qué|cómo|para|pero|esto|como|los|las|una|tu|más)\b/.test(s))
+    return "es";
+  if (/\b(the|and|you|for|with|this|that|your|how|are|what|to|of)\b/.test(s)) return "en";
+  return "other";
+}
+
 /** Pontuação de desempenho p/ ordenar as tendências (melhores primeiro). */
 function perfScore(t: Trend): number {
   const m = t.metrics ?? {};
@@ -695,6 +706,9 @@ export function TrendsClient({
   // Coleta já é feita por nicho (hashtags/buscas da marca), então o filtro
   // por palavra-chave começa DESLIGADO para não cortar resultados válidos.
   const [nicheOnly, setNicheOnly] = useState(false);
+  const [lang, setLang] = useState<"all" | "pt" | "en" | "es">("all");
+  const [minPerf, setMinPerf] = useState<"all" | "mid" | "high">("all");
+  const [excludeWords, setExcludeWords] = useState("");
   const [search, setSearch] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
@@ -737,7 +751,7 @@ export function TrendsClient({
 
   const comingSoon = !!activeTab && !activeTab.active;
 
-  const filtered = comingSoon
+  let filtered = comingSoon
     ? []
     : trends.filter((t) => {
         if (platform === "saved") {
@@ -749,6 +763,20 @@ export function TrendsClient({
         // Personalização por nicho (não aplica em "Minhas refs")
         if (nicheOnly && platform !== "saved" && !matchesNiche(t, brandKeywords)) {
           return false;
+        }
+        // Idioma / origem
+        if (lang !== "all" && detectLang(`${t.title} ${t.description ?? ""}`) !== lang) {
+          return false;
+        }
+        // Excluir palavras (separadas por vírgula)
+        const excl = excludeWords
+          .toLowerCase()
+          .split(",")
+          .map((w) => w.trim())
+          .filter(Boolean);
+        if (excl.length) {
+          const hay = `${t.title} ${t.description ?? ""}`.toLowerCase();
+          if (excl.some((w) => hay.includes(w))) return false;
         }
         if (search.trim()) {
           const q = search.toLowerCase();
@@ -763,6 +791,12 @@ export function TrendsClient({
 
   // Melhores primeiro (maior alcance/engajamento no topo).
   filtered.sort((a, b) => perfScore(b) - perfScore(a));
+
+  // Corte por desempenho (mantém só os melhores).
+  if (minPerf !== "all" && filtered.length > 3) {
+    const keep = Math.ceil(filtered.length * (minPerf === "high" ? 0.3 : 0.6));
+    filtered = filtered.slice(0, keep);
+  }
 
   // Ordena por qualidade: velocidade (views/h) e engajamento, não só volume bruto.
   // Referências manuais ("Minhas refs") preservam a ordem de adição.
@@ -861,6 +895,63 @@ export function TrendsClient({
               {nicheOnly ? "Meu nicho" : "Ver tudo"}
             </button>
           )}
+        </div>
+      )}
+
+      {/* Filtros de qualidade */}
+      {!comingSoon && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border bg-card px-3 py-2 text-[11px]">
+          {/* Idioma / origem */}
+          <div className="flex items-center gap-1">
+            <span className="text-muted-foreground mr-0.5">Origem:</span>
+            {([
+              ["all", "🌐 Tudo"],
+              ["pt", "🇧🇷 PT"],
+              ["en", "🇺🇸 EN"],
+              ["es", "🇪🇸 ES"],
+            ] as const).map(([v, l]) => (
+              <button
+                key={v}
+                onClick={() => setLang(v)}
+                className={`px-2 py-0.5 rounded font-medium transition-colors ${
+                  lang === v ? "bg-foreground/10 text-foreground" : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+
+          {/* Desempenho */}
+          <div className="flex items-center gap-1">
+            <span className="text-muted-foreground mr-0.5">Desempenho:</span>
+            {([
+              ["all", "Todos"],
+              ["mid", "Melhores"],
+              ["high", "Top 🔥"],
+            ] as const).map(([v, l]) => (
+              <button
+                key={v}
+                onClick={() => setMinPerf(v)}
+                className={`px-2 py-0.5 rounded font-medium transition-colors ${
+                  minPerf === v ? "bg-foreground/10 text-foreground" : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+
+          {/* Excluir palavras */}
+          <div className="flex items-center gap-1.5 flex-1 min-w-[160px]">
+            <span className="text-muted-foreground whitespace-nowrap">Excluir:</span>
+            <input
+              value={excludeWords}
+              onChange={(e) => setExcludeWords(e.target.value)}
+              placeholder="ex: sorteio, curso grátis"
+              className="flex-1 bg-transparent border-b border-dashed border-muted-foreground/30 focus:border-foreground/40 outline-none py-0.5"
+            />
+          </div>
         </div>
       )}
 
