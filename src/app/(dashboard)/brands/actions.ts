@@ -17,7 +17,7 @@ async function recomputeScore(brandId: string) {
       .single(),
     supabase
       .from("brand_voice")
-      .select("target_audience, content_pillars, characteristic_phrases, forbidden_words")
+      .select("target_audience, tone, content_pillars, characteristic_phrases, forbidden_words")
       .eq("brand_id", brandId)
       .maybeSingle(),
     supabase
@@ -44,6 +44,7 @@ async function recomputeScore(brandId: string) {
     hasFonts: !!(identity.font_heading || identity.font_body),
     hasDescription: !!brand.description,
     hasAudience: !!voice?.target_audience,
+    hasTone: !!voice?.tone,
     pillarsCount: voice?.content_pillars?.length ?? 0,
     phrasesCount: voice?.characteristic_phrases?.length ?? 0,
     forbiddenCount: voice?.forbidden_words?.length ?? 0,
@@ -210,6 +211,8 @@ export async function applyDocumentsToBrand(
   type Extracted = {
     resumo?: string;
     publico_alvo?: string;
+    tom_de_voz?: string;
+    posicionamento?: string;
     pilares?: string[];
     frases_chave?: string[];
     palavras_evitar?: string[];
@@ -278,8 +281,20 @@ export async function applyDocumentsToBrand(
     }
   }
 
+  // Tom de voz — only fill if empty (antes era ignorado!)
+  const voiceRecord = voice as { tone?: string } | null;
+  if (!voiceRecord?.tone) {
+    const tom = extracted.find((e) => e.tom_de_voz?.trim())?.tom_de_voz;
+    if (tom) {
+      voiceUpdate.tone = tom;
+      updated.push("Tom de voz");
+    }
+  }
+
   if (Object.keys(voiceUpdate).length > 0) {
-    await supabase.from("brand_voice").update(voiceUpdate).eq("brand_id", brandId);
+    await supabase
+      .from("brand_voice")
+      .upsert({ brand_id: brandId, ...voiceUpdate }, { onConflict: "brand_id" });
   }
 
   // Brand description — only fill if empty
@@ -291,10 +306,9 @@ export async function applyDocumentsToBrand(
     }
   }
 
-  if (updated.length > 0) {
-    await recomputeScore(brandId);
-    revalidatePath(`/brands/${brandId}`);
-  }
+  // Sempre recalcula (mesmo sem campo novo) p/ refletir os pesos atuais do score.
+  await recomputeScore(brandId);
+  revalidatePath(`/brands/${brandId}`);
 
   return { updated };
 }
