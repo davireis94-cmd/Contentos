@@ -13,7 +13,10 @@ import {
   Wand2,
   ClipboardCopy,
   Sparkles,
+  Gavel,
+  AlertTriangle,
 } from "lucide-react";
+import type { CriticResult } from "@/lib/skills/content-critic";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -103,6 +106,8 @@ export function StreamOutput({ state }: Props) {
   const [allCopied, setAllCopied] = useState(false);
   const [humanizing, setHumanizing] = useState(false);
   const [humanized, setHumanized] = useState(false);
+  const [critiquing, setCritiquing] = useState(false);
+  const [critique, setCritique] = useState<CriticResult | null>(null);
 
   useEffect(() => {
     if (state.status === "done" && lastPieceIdRef.current !== state.pieceId) {
@@ -111,6 +116,7 @@ export function StreamOutput({ state }: Props) {
       setChatMessages([]);
       setRefineError(null);
       setChatInput("");
+      setCritique(null);
     }
   }, [state]);
 
@@ -189,6 +195,25 @@ export function StreamOutput({ state }: Props) {
     setTimeout(() => setAllCopied(false), 2000);
   }
 
+  async function handleCritique() {
+    if (critiquing) return;
+    setCritiquing(true);
+    try {
+      const res = await fetch("/api/critic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ output: displayOutput }),
+      });
+      const data = await res.json() as { result?: CriticResult; error?: string };
+      if (!res.ok || !data.result) throw new Error(data.error ?? "Erro");
+      setCritique(data.result);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCritiquing(false);
+    }
+  }
+
   async function handleHumanize() {
     if (humanizing) return;
     setHumanizing(true);
@@ -221,6 +246,18 @@ export function StreamOutput({ state }: Props) {
           <Badge variant="secondary">{FORMAT_LABELS[displayOutput.format] ?? displayOutput.format}</Badge>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => void handleCritique()}
+            disabled={critiquing}
+            className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent text-muted-foreground hover:text-foreground"
+            title="Crítica honesta do post (gancho, retenção, CTA, cara de IA)"
+          >
+            {critiquing ? (
+              <><Loader2 className="size-3.5 animate-spin" /> Avaliando…</>
+            ) : (
+              <><Gavel className="size-3.5" /> Criticar</>
+            )}
+          </button>
           <button
             onClick={() => void handleHumanize()}
             disabled={humanizing}
@@ -255,6 +292,58 @@ export function StreamOutput({ state }: Props) {
           </button>
         </div>
       </div>
+
+      {/* Crítica do conteúdo */}
+      {critique && (
+        <Card className="border-amber-200/60 bg-amber-50/30 dark:border-amber-900/40 dark:bg-amber-950/10">
+          <CardContent className="py-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className={`flex items-center justify-center size-11 rounded-full text-sm font-bold shrink-0 ${
+                critique.score >= 75 ? "bg-emerald-100 text-emerald-700" : critique.score >= 50 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+              }`}>
+                {critique.score}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                  <Gavel className="size-3.5" /> Crítica honesta
+                </p>
+                <p className="text-sm mt-0.5">{critique.verdict}</p>
+              </div>
+            </div>
+
+            {critique.issues.length > 0 && (
+              <div className="space-y-1.5">
+                {critique.issues.map((iss, i) => (
+                  <div key={i} className="rounded-lg border bg-card px-3 py-2 text-sm">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                        iss.severity === "alta" ? "bg-red-100 text-red-700" : iss.severity === "média" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"
+                      }`}>
+                        {iss.severity}
+                      </span>
+                      <span className="text-xs font-medium text-muted-foreground">{iss.where}</span>
+                    </div>
+                    <p className="text-xs">{iss.problem}</p>
+                    <p className="text-xs mt-1 flex gap-1.5"><span className="text-emerald-600 shrink-0">→ corrigir:</span>{iss.fix}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {critique.strengths.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {critique.strengths.map((s, i) => (
+                  <span key={i} className="text-[11px] rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5">✓ {s}</span>
+                ))}
+              </div>
+            )}
+
+            <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <AlertTriangle className="size-3" /> Use o chat abaixo (&quot;Refinar com IA&quot;) pra aplicar as correções.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Slides */}
       <div className="space-y-3">
