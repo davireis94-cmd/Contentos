@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PLATFORM_LABELS, type Platform } from "@/types/app";
 import { PlatformsField } from "./platforms-field";
 import { addReference, deleteReference } from "../../actions";
+import { proxyImg } from "@/lib/utils";
 
 interface Analysis {
   estrategia?: string;
@@ -55,6 +56,14 @@ interface RefPost {
   metrics: { likes?: number; comments?: number; views?: number };
 }
 
+const PLATFORM_COLORS: Record<string, string> = {
+  instagram: "bg-pink-500/10 text-pink-600 border-pink-200",
+  tiktok: "bg-slate-900/10 text-slate-700 border-slate-300",
+  youtube: "bg-red-500/10 text-red-600 border-red-200",
+  linkedin: "bg-blue-500/10 text-blue-700 border-blue-200",
+  x: "bg-slate-500/10 text-slate-600 border-slate-200",
+};
+
 function fmt(n: number | undefined): string {
   if (!n) return "0";
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -73,10 +82,11 @@ function PostCard({ post }: { post: RefPost }) {
         {post.thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={post.thumbnailUrl}
+            src={proxyImg(post.thumbnailUrl) ?? post.thumbnailUrl}
             alt={post.title}
             className="w-full h-full object-cover"
             loading="lazy"
+            referrerPolicy="no-referrer"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
@@ -136,9 +146,10 @@ function ReferenceAvatar({ name, handle }: { name: string; handle: string | null
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={`https://unavatar.io/instagram/${cleanHandle}`}
+        src={`https://unavatar.io/instagram/${cleanHandle}?fallback=false`}
         alt={name}
         onError={() => setImgFailed(true)}
+        referrerPolicy="no-referrer"
         className="size-10 shrink-0 rounded-full object-cover bg-accent"
       />
     );
@@ -229,7 +240,9 @@ function ReferenceCard({ reference, brandId, voice }: { reference: Reference; br
             {reference.handle && <p className="text-xs text-muted-foreground">{reference.handle}</p>}
             <div className="flex flex-wrap gap-1 mt-1">
               {reference.platforms.map((p) => (
-                <Badge key={p} variant="secondary" className="text-[10px]">{PLATFORM_LABELS[p]}</Badge>
+                <Badge key={p} variant="outline" className={`text-[10px] border ${PLATFORM_COLORS[p] ?? ""}`}>
+                  {PLATFORM_LABELS[p]}
+                </Badge>
               ))}
             </div>
           </div>
@@ -355,7 +368,7 @@ function ReferenceCard({ reference, brandId, voice }: { reference: Reference; br
                             <p className="text-[10px] text-muted-foreground">{s.formato} · {s.objetivo}</p>
                           </div>
                           <Link
-                            href={`/generate?format=${s.formato}&objective=${s.objetivo}`}
+                            href={`/generate?topic=${encodeURIComponent(s.tema)}&format=${s.formato}&objective=${s.objetivo}`}
                             className="shrink-0 flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] hover:bg-accent transition-colors"
                           >
                             <Wand2 className="size-2.5" />Gerar

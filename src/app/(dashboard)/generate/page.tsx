@@ -8,13 +8,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export default async function GeneratePage({
   searchParams,
 }: {
-  searchParams: Promise<{ brandId?: string; ref?: string; topic?: string; ext?: string; trendId?: string; mode?: string }>;
+  searchParams: Promise<{ brandId?: string; ref?: string; topic?: string; ext?: string; trendId?: string; mode?: string; format?: string; objective?: string }>;
 }) {
   const { user, workspace, supabase } = await getSessionContext();
   if (!user) redirect("/login");
   if (!workspace) redirect("/onboarding");
 
-  const { brandId, ref, topic, ext, trendId, mode } = await searchParams;
+  const { brandId, ref, topic, ext, trendId, mode, format, objective } = await searchParams;
 
   const [{ data: brands }, { data: recentPieces }, trendResult] = await Promise.all([
     supabase
@@ -69,6 +69,8 @@ export default async function GeneratePage({
             defaultRefId={ref}
             defaultTopic={topic ?? trend?.title ?? undefined}
             defaultExt={!!ext}
+            defaultFormat={format}
+            defaultObjective={objective}
             trendContext={trend ?? undefined}
           />
         </TabsContent>

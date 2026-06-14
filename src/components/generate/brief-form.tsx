@@ -57,6 +57,8 @@ interface Props {
   defaultRefId?: string;
   defaultTopic?: string;
   defaultExt?: boolean;
+  defaultFormat?: string;
+  defaultObjective?: string;
   trendContext?: TrendContext;
 }
 
@@ -130,12 +132,14 @@ const TOOL_OPTIONS: Record<string, Record<string, string[]>> = {
   },
 };
 
-export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, defaultTopic, defaultExt, trendContext }: Props) {
+const VALID_FORMATS = ["carousel", "reel", "story", "single"];
+
+export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, defaultTopic, defaultExt, defaultFormat, defaultObjective, trendContext }: Props) {
   const [generationState, setGenerationState] = useState<GenerationState>({
     status: "idle",
   });
   const [platform, setPlatform] = useState("instagram");
-  const [format, setFormat] = useState("carousel");
+  const [format, setFormat] = useState(defaultFormat && VALID_FORMATS.includes(defaultFormat) ? defaultFormat : "carousel");
   const [videoType, setVideoType] = useState("");
   const [tool, setTool] = useState("Canva");
   const [customTool, setCustomTool] = useState(false);
@@ -597,7 +601,7 @@ export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, 
             {/* Objective */}
             <div className="space-y-2">
               <Label>Objetivo</Label>
-              <Select name="objective" defaultValue="educate" required>
+              <Select name="objective" defaultValue={["educate", "engage", "sell", "inspire"].includes(defaultObjective ?? "") ? defaultObjective : "educate"} required>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>

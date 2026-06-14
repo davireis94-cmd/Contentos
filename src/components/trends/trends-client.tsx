@@ -43,6 +43,7 @@ import {
   saveReferenceProfiles,
   type ReferenceProfile,
 } from "@/app/(dashboard)/trends/actions";
+import { proxyImg } from "@/lib/utils";
 
 export interface TrendMetrics {
   views?: number;
@@ -474,9 +475,11 @@ function TrendCard({
         {trend.thumbnail_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={trend.thumbnail_url}
+            src={proxyImg(trend.thumbnail_url) ?? trend.thumbnail_url}
             alt={trend.title}
             className="w-full h-full object-cover"
+            loading="lazy"
+            referrerPolicy="no-referrer"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -505,11 +508,6 @@ function TrendCard({
           <div className="absolute bottom-2 left-2 flex items-center gap-1 text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-medium">
             <Star className="size-2.5" fill="white" />
             Referência
-          </div>
-        )}
-        {isGlobal && (
-          <div className="absolute bottom-2 right-2 text-[10px] bg-primary/90 text-primary-foreground px-1.5 py-0.5 rounded font-medium">
-            Curado
           </div>
         )}
       </div>
@@ -667,6 +665,23 @@ function qualityScore(t: Trend): number {
   const social = (m.ups ?? 0) + (m.likes ?? 0) + (m.comments ?? 0);
   // Engajamento pesa muito (qualidade); velocidade indica "em alta"; volume é desempate leve.
   return engagement * 1000 + velocity + social * 0.01;
+}
+
+/**
+ * Piso de qualidade: esconde o lixo de baixíssimo engajamento que o scraping
+ * por hashtag traz (posts com 0-1 like NÃO são tendência). Referências do
+ * usuário e manuais sempre passam; YouTube/Reddit têm métricas reais e passam.
+ */
+function passesQualityFloor(t: Trend): boolean {
+  if (t.source === "manual" || t.topic_tags.includes("referencia")) return true;
+  const m = t.metrics ?? {};
+  if (t.platform === "instagram") {
+    return (m.likes ?? 0) >= 30 || (m.views ?? 0) >= 1000 || (m.comments ?? 0) >= 5;
+  }
+  if (t.platform === "tiktok") {
+    return (m.views ?? 0) >= 3000 || (m.likes ?? 0) >= 200;
+  }
+  return true;
 }
 
 /** Um trend é relevante ao nicho se alguma palavra-chave da marca aparece nele. */
@@ -881,6 +896,8 @@ export function TrendsClient({
           if (t.platform !== platform) return false;
           if (sub !== "all" && t.format !== sub) return false;
         }
+        // Piso de qualidade: esconde lixo de baixo engajamento (exceto refs/manuais)
+        if (platform !== "saved" && !passesQualityFloor(t)) return false;
         // Personalização por nicho (não aplica em "Minhas refs")
         if (nicheOnly && platform !== "saved" && !matchesNiche(t, brandKeywords)) {
           return false;
