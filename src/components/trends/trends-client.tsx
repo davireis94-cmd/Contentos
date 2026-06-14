@@ -102,16 +102,23 @@ function detectLang(text: string): "pt" | "en" | "es" | "other" {
   return "en";
 }
 
-/** Pontuação de desempenho p/ ordenar as tendências (melhores primeiro). */
+/**
+ * Pontuação de "está bombando" baseada nos sinais reais que o algoritmo valoriza
+ * (pesquisa de mercado 2025): velocidade (engajamento ÷ tempo) e taxa de
+ * engajamento pesam mais que volume bruto; saves e comentários (valor/conversa)
+ * acima de likes; views entram com peso baixo. Assim um post com muito
+ * engajamento RECENTE supera um post antigo só com volume acumulado.
+ */
 function perfScore(t: Trend): number {
   const m = t.metrics ?? {};
   return (
-    (m.views ?? 0) +
-    (m.ups ?? 0) * 30 +
-    (m.likes ?? 0) * 20 +
-    (m.comments ?? 0) * 50 +
-    (m.saved ?? 0) * 80 +
-    (m.velocityPerHour ?? 0) * 5
+    (m.velocityPerHour ?? 0) * 12 + // "trending" = recência + tração
+    (m.engagementRate ?? 0) * 60 + // qualidade (interações / alcance)
+    (m.saved ?? 0) * 5 + // salvar = conteúdo de valor
+    (m.comments ?? 0) * 3 + // conversa real
+    (m.ups ?? 0) * 2 + // upvotes (Reddit)
+    (m.likes ?? 0) * 1 +
+    (m.views ?? 0) / 200 // volume importa pouco
   );
 }
 
@@ -657,16 +664,6 @@ const PLATFORM_TABS: PlatformTab[] = [
   { value: "saved", label: "Minhas refs", active: true },
 ];
 
-/** Pontuação de qualidade: prioriza velocidade e engajamento sobre volume bruto. */
-function qualityScore(t: Trend): number {
-  const m = t.metrics ?? {};
-  const velocity = m.velocityPerHour ?? 0;
-  const engagement = m.engagementRate ?? 0;
-  const social = (m.ups ?? 0) + (m.likes ?? 0) + (m.comments ?? 0);
-  // Engajamento pesa muito (qualidade); velocidade indica "em alta"; volume é desempate leve.
-  return engagement * 1000 + velocity + social * 0.01;
-}
-
 /**
  * Piso de qualidade: esconde o lixo de baixíssimo engajamento que o scraping
  * por hashtag traz (posts com 0-1 like NÃO são tendência). Referências do
@@ -927,21 +924,19 @@ export function TrendsClient({
         return true;
       });
 
-  // Melhores primeiro (maior alcance/engajamento no topo).
-  filtered.sort((a, b) => perfScore(b) - perfScore(a));
+  // Ordena por "está bombando" (velocidade + engajamento). "Minhas refs"
+  // preserva a ordem de adição.
+  if (platform !== "saved") {
+    filtered.sort((a, b) => perfScore(b) - perfScore(a));
+  }
 
   // Corte por desempenho (mantém só os melhores).
-  if (minPerf !== "all" && filtered.length > 3) {
+  if (platform !== "saved" && minPerf !== "all" && filtered.length > 3) {
     const keep = Math.ceil(filtered.length * (minPerf === "high" ? 0.3 : 0.6));
     filtered = filtered.slice(0, keep);
   }
 
-  // Ordena por qualidade: velocidade (views/h) e engajamento, não só volume bruto.
-  // Referências manuais ("Minhas refs") preservam a ordem de adição.
-  const ranked =
-    platform === "saved"
-      ? filtered
-      : [...filtered].sort((a, b) => qualityScore(b) - qualityScore(a));
+  const ranked = filtered;
 
   return (
     <div className="space-y-5">
