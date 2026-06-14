@@ -14,22 +14,38 @@ PADRÕES DE IA QUE VOCÊ DEVE ELIMINAR:
 - Marcadores de IA: "É importante destacar", "Vale ressaltar", "É fundamental entender", "Não podemos ignorar"
 - Conectivos mecânicos no início: "No entanto,", "Portanto,", "Além disso,", "Outrossim,"
 - Adjetivos inflados: "revolucionário", "disruptivo", "transformador", "inovador", "robusto"
-- Bullet points paralelos demais (todos com a mesma estrutura gramatical)
 - Frases longas e simétricas que soam como template
 - Passiva excessiva: "é possível perceber", "pode-se observar", "foi verificado"
-- Frases de efeito genéricas: "sucesso não acontece da noite para o dia"
 
 O QUE FAZER:
 - Comece direto ao ponto — sem rodeios
-- Use frases curtas quando o conteúdo for forte, longas quando quiser ritmo
-- Varie a estrutura das frases (não siga padrão)
-- Mantenha imperfeições naturais (repetição intencional, ênfase com vírgula)
-- Preserve 100% da informação e estrutura do conteúdo original
-- Mantenha o tom e voz da marca informada no contexto
-- Para slides de carrossel: mantenha o número de slides, títulos e CTAs
-- Não mude hashtags
+- Varie a estrutura e o tamanho das frases (não siga padrão)
+- Mantenha imperfeições naturais (ênfase, repetição intencional)
+- Preserve 100% da informação e a voz da marca informada
+- Mantenha notas técnicas entre colchetes [assim] intactas (são instruções de produção/layout)
 
-RETORNE o texto humanizado com a MESMA estrutura do input, apenas o conteúdo reescrito.`;
+FORMATO DE SAÍDA — responda SOMENTE com JSON válido, sem markdown, com a MESMA estrutura recebida:
+{
+  "slides": [{ "index": 0, "title": "...", "subtitle": "...", "body": "...", "cta": "..." }],
+  "caption": "...",
+  "hashtags": ["#..."]
+}
+Reescreva apenas title/subtitle/body/cta/caption. NÃO altere hashtags, nem index, nem o número de slides, nem as notas [entre colchetes].`;
+
+interface HumanizeSlide {
+  index?: number;
+  title?: string;
+  subtitle?: string;
+  body?: string;
+  cta?: string;
+  imageUrl?: string;
+}
+interface HumanizeOutput {
+  slides?: HumanizeSlide[];
+  caption?: string;
+  hashtags?: string[];
+  [k: string]: unknown;
+}
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -37,31 +53,63 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
   const body = await request.json() as {
-    text: string;
+    output?: HumanizeOutput;
     brandVoice?: { tone?: string; target_audience?: string };
   };
 
-  if (!body.text?.trim()) return NextResponse.json({ error: "text obrigatório" }, { status: 400 });
+  if (!body.output || !Array.isArray(body.output.slides)) {
+    return NextResponse.json({ error: "output inválido" }, { status: 400 });
+  }
 
   const voiceCtx = body.brandVoice
     ? `\nVOZ DA MARCA: Tom: ${body.brandVoice.tone || "não definido"} | Público: ${body.brandVoice.target_audience || "não definido"}`
     : "";
 
+  // Envia só os campos de texto; preserva imageUrl/index do original.
+  const payload = {
+    slides: body.output.slides.map((s) => ({
+      index: s.index,
+      title: s.title,
+      subtitle: s.subtitle,
+      body: s.body,
+      cta: s.cta,
+    })),
+    caption: body.output.caption ?? "",
+    hashtags: body.output.hashtags ?? [],
+  };
+
   try {
     const msg = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 2000,
+      max_tokens: 3000,
       system: HUMANIZER_SYSTEM + voiceCtx,
       messages: [
-        {
-          role: "user",
-          content: `Humanize este texto preservando toda a estrutura e informação:\n\n${body.text}`,
-        },
+        { role: "user", content: `Humanize este conteúdo preservando a estrutura JSON:\n\n${JSON.stringify(payload)}` },
       ],
     });
 
-    const humanized = msg.content[0]?.type === "text" ? msg.content[0].text.trim() : body.text;
-    return NextResponse.json({ humanized });
+    const raw = msg.content[0]?.type === "text" ? msg.content[0].text : "";
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("Sem JSON");
+    const humanized = JSON.parse(match[0]) as HumanizeOutput;
+
+    // Recompõe preservando imageUrl/index originais e hashtags intactas.
+    const slides = (humanized.slides ?? []).map((s, i) => ({
+      ...body.output!.slides![i],
+      title: s.title ?? body.output!.slides![i]?.title,
+      subtitle: s.subtitle ?? body.output!.slides![i]?.subtitle,
+      body: s.body ?? body.output!.slides![i]?.body,
+      cta: s.cta ?? body.output!.slides![i]?.cta,
+    }));
+
+    const result = {
+      ...body.output,
+      slides,
+      caption: humanized.caption ?? body.output.caption,
+      hashtags: body.output.hashtags, // nunca mexe nas hashtags
+    };
+
+    return NextResponse.json({ output: result });
   } catch {
     return NextResponse.json({ error: "Falha ao humanizar" }, { status: 502 });
   }

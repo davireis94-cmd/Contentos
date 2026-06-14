@@ -193,39 +193,15 @@ export function StreamOutput({ state }: Props) {
     if (humanizing) return;
     setHumanizing(true);
     try {
-      const fullText = buildFullCopy(displayOutput);
       const res = await fetch("/api/humanize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: fullText }),
+        body: JSON.stringify({ output: displayOutput }),
       });
-      const data = await res.json() as { humanized?: string; error?: string };
-      if (!res.ok || !data.humanized) throw new Error(data.error ?? "Erro");
+      const data = await res.json() as { output?: GenerationOutput; error?: string };
+      if (!res.ok || !data.output) throw new Error(data.error ?? "Erro");
 
-      // Parse humanized text back into output structure (update caption at minimum)
-      const lines = data.humanized.split("\n");
-      const captionIdx = lines.findIndex((l) => l.startsWith("LEGENDA:"));
-      const hashIdx = lines.findIndex((l) => l.startsWith("HASHTAGS:"));
-
-      const newOutput = { ...displayOutput, slides: [...displayOutput.slides] };
-      if (captionIdx !== -1 && hashIdx !== -1) {
-        newOutput.caption = lines.slice(captionIdx + 1, hashIdx).join("\n").trim();
-      }
-      // Rebuild slide bodies from humanized text
-      const slideMatches = data.humanized.matchAll(/SLIDE\s+\d+[^\n]*\n([\s\S]*?)(?=SLIDE\s+\d+|---)/g);
-      let si = 0;
-      for (const m of slideMatches) {
-        if (si < newOutput.slides.length) {
-          const slideLines = m[1].trim().split("\n");
-          newOutput.slides[si] = {
-            ...newOutput.slides[si],
-            body: slideLines.slice(1).join("\n").trim() || newOutput.slides[si].body,
-          };
-          si++;
-        }
-      }
-
-      setLocalOutput(newOutput as GenerationOutput);
+      setLocalOutput(data.output);
       setHumanized(true);
       setTimeout(() => setHumanized(false), 3000);
     } catch (e) {
