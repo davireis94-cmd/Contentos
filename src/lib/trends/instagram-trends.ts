@@ -22,16 +22,17 @@ interface IgItem {
   ownerUsername?: string;
 }
 
-/** Hashtag enxuta (sem espaços/acentos) a partir da busca do nicho. */
+/** Hashtag real (palavra única, sem espaços/acentos) a partir da busca do nicho. */
 function hashtagOf(niche: NicheConfig): string {
-  return niche.youtubeQuery
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9\s]/g, "")
-    .split(/\s+/)
-    .slice(0, 2)
-    .join("");
+  return (
+    niche.youtubeQuery
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .find((w) => w.length > 3) ?? ""
+  );
 }
 
 function mapFormat(it: IgItem): string {

@@ -4,6 +4,8 @@ import { NICHES, type FetchedTrend, type NicheConfig } from "./sources";
 const ACTOR = "clockworks~free-tiktok-scraper";
 
 interface TtItem {
+  error?: string;
+  errorCode?: string;
   id?: string;
   text?: string;
   createTimeISO?: string;
@@ -18,16 +20,17 @@ interface TtItem {
   covers?: string[];
 }
 
-/** Hashtag enxuta (sem espaços/acentos) a partir da busca do nicho. */
+/** Hashtag real (palavra única, sem espaços/acentos) a partir da busca do nicho. */
 function hashtagOf(niche: NicheConfig): string {
-  return niche.youtubeQuery
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9\s]/g, "")
-    .split(/\s+/)
-    .slice(0, 2)
-    .join("");
+  return (
+    niche.youtubeQuery
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .find((w) => w.length > 3) ?? ""
+  );
 }
 
 /**
@@ -83,10 +86,14 @@ export async function fetchTikTokTrends(
     });
   }
 
-  // Diagnóstico: se veio dado mas nada mapeou, mostra os campos reais p/ ajuste.
+  // Diagnóstico: se veio dado mas nada mapeou, mostra o erro real p/ ajuste.
   if (results.length === 0) {
     if (items.length === 0) {
       throw new Error(`Apify OK, 0 itens para #${tags.join(", #")}`);
+    }
+    const errored = items.find((it) => it.error || it.errorCode);
+    if (errored) {
+      throw new Error(`Apify (tiktok): ${errored.error ?? errored.errorCode}`);
     }
     throw new Error(
       `Apify devolveu ${items.length} itens em formato inesperado. Campos: ${Object.keys(
