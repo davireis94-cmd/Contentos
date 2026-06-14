@@ -116,11 +116,18 @@ export async function fetchInstagramTrends(
   });
 
   const niche = niches[0]?.tag ?? niches[0]?.id ?? "instagram";
-  const results: FetchedTrend[] = [];
+  const mappedAll: FetchedTrend[] = [];
   for (const it of items) {
     const mapped = mapIgItem(it, niche, false);
-    if (mapped) results.push(mapped);
+    if (mapped) mappedAll.push(mapped);
   }
+  // Piso de qualidade: corta o lixo de baixíssimo engajamento. Se sobrar pouco,
+  // mantém os melhores mesmo assim (hashtag às vezes só traz post fraco).
+  const eng = (t: FetchedTrend) =>
+    (t.metrics.likes ?? 0) + (t.metrics.comments ?? 0) * 2 + (t.metrics.views ?? 0) / 100;
+  mappedAll.sort((a, b) => eng(b) - eng(a));
+  const strong = mappedAll.filter((t) => (t.metrics.likes ?? 0) >= 80 || (t.metrics.views ?? 0) >= 2000);
+  const results = strong.length >= 4 ? strong : mappedAll.slice(0, 8);
 
   // Diagnóstico: se veio dado mas nada mapeou, mostra os campos reais p/ ajuste.
   if (results.length === 0) {

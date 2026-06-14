@@ -114,11 +114,17 @@ export async function fetchTikTokTrends(
   });
 
   const niche = niches[0]?.tag ?? niches[0]?.id ?? "tiktok";
-  const results: FetchedTrend[] = [];
+  const mappedAll: FetchedTrend[] = [];
   for (const it of items) {
     const mapped = mapTtItem(it, niche, false);
-    if (mapped) results.push(mapped);
+    if (mapped) mappedAll.push(mapped);
   }
+  // Piso de qualidade (TikTok é movido a views).
+  const eng = (t: FetchedTrend) =>
+    (t.metrics.views ?? 0) + (t.metrics.likes ?? 0) * 20 + (t.metrics.comments ?? 0) * 50;
+  mappedAll.sort((a, b) => eng(b) - eng(a));
+  const strong = mappedAll.filter((t) => (t.metrics.views ?? 0) >= 5000 || (t.metrics.likes ?? 0) >= 300);
+  const results = strong.length >= 4 ? strong : mappedAll.slice(0, 8);
 
   // Diagnóstico: se veio dado mas nada mapeou, mostra o erro real p/ ajuste.
   if (results.length === 0) {
