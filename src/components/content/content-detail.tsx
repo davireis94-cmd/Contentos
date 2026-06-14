@@ -54,6 +54,8 @@ interface Props {
   status: ContentStatus;
   createdAt: string;
   brandName: string | null;
+  brandColors?: { hex: string; role?: string }[];
+  brandHandle?: string | null;
   output: GenerationOutput;
 }
 
@@ -191,6 +193,8 @@ export function ContentDetail({
   status: initialStatus,
   createdAt,
   brandName,
+  brandColors,
+  brandHandle,
   output,
 }: Props) {
   const [status, setStatus] = useState<ContentStatus>(initialStatus);
@@ -489,6 +493,8 @@ export function ContentDetail({
           <CarouselStudio
             slides={slides}
             pieceId={pieceId}
+            brandColors={brandColors}
+            brandHandle={brandHandle}
             onSlidesChange={(next) => {
               setSlides(next);
             }}

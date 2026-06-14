@@ -18,7 +18,7 @@ export default async function ContentPiecePage({
 
   const { data: piece } = await supabase
     .from("content_pieces")
-    .select("id, title, format, status, slides, caption, hashtags, created_at, brands(name)")
+    .select("id, title, format, status, slides, caption, hashtags, created_at, brands(name, identity)")
     .eq("id", pieceId)
     .eq("workspace_id", workspace.id)
     .single();
@@ -26,9 +26,19 @@ export default async function ContentPiecePage({
   if (!piece) notFound();
 
   const slides = Array.isArray(piece.slides) ? piece.slides : [];
-  const brandName = Array.isArray(piece.brands)
-    ? piece.brands[0]?.name ?? null
-    : (piece.brands as { name: string } | null)?.name ?? null;
+  const brandObj = Array.isArray(piece.brands) ? piece.brands[0] : piece.brands;
+  const brandName = (brandObj as { name: string } | null)?.name ?? null;
+  const brandIdentity = ((brandObj as { identity?: { colors?: { hex: string; role?: string }[] } } | null)?.identity ?? {});
+  const brandColors = brandIdentity.colors ?? [];
+
+  // Handle do Instagram conectado (para o rodapé dos slides)
+  const { data: conn } = await supabase
+    .from("social_connections")
+    .select("username")
+    .eq("workspace_id", workspace.id)
+    .eq("platform", "instagram")
+    .maybeSingle();
+  const brandHandle = conn?.username ?? null;
 
   if (slides.length === 0) {
     return (
@@ -57,6 +67,8 @@ export default async function ContentPiecePage({
       status={piece.status as ContentStatus}
       createdAt={piece.created_at}
       brandName={brandName}
+      brandColors={brandColors}
+      brandHandle={brandHandle}
       output={output}
     />
   );

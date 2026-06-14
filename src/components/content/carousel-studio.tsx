@@ -26,6 +26,7 @@ import {
 import type { Slide } from "@/lib/validations/generation";
 import { updateSlides } from "@/app/(dashboard)/content/[pieceId]/actions";
 import { IMAGE_MODEL_DEFS } from "@/lib/images/models";
+import { deriveBrandTokens, type BrandTokens } from "@/lib/render/brand-tokens";
 
 // ── Slide parsing helpers ──────────────────────────────────────────────────
 
@@ -61,29 +62,20 @@ const LAYOUT_LABELS: Record<string, string> = {
   gradient: "Gradiente (CTA)",
 };
 
-// ── Brand tokens ───────────────────────────────────────────────────────────
-
-const B = {
-  primary: "#6B1A2A",
-  light: "#9B3A4A",
-  dark: "#3D0F18",
-  darkBg: "#180E0C",
-  lightBg: "#FAF7F2",
-  lightBorder: "#EDE8E0",
-  gradient: "linear-gradient(165deg,#3D0F18 0%,#6B1A2A 50%,#9B3A4A 100%)",
-} as const;
-
 // ── Slide Visual Component ─────────────────────────────────────────────────
 
 function SlideVisual({
   slide,
   idx,
   total,
+  B,
 }: {
   slide: Slide;
   idx: number;
   total: number;
+  B: BrandTokens;
 }) {
+  const handle = B.handle;
   const body = slide.body ?? "";
   const layout = getLayout(body);
   const text = cleanBody(body);
@@ -176,7 +168,7 @@ function SlideVisual({
           marginBottom: 8,
         }}
       >
-        {slide.subtitle ?? "IA aplicada a negócios"}
+        {slide.subtitle ?? ""}
       </div>
     ) : null;
 
@@ -269,21 +261,23 @@ function SlideVisual({
             padding: "0 20px 40px",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-            <div
-              style={{
-                width: 26,
-                height: 26,
-                borderRadius: "50%",
-                background: B.primary,
-                border: `1px solid ${B.light}`,
-                flexShrink: 0,
-              }}
-            />
-            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", fontWeight: 600 }}>
-              @davimoxoto
-            </span>
-          </div>
+          {handle && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <div
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: "50%",
+                  background: B.primary,
+                  border: `1px solid ${B.light}`,
+                  flexShrink: 0,
+                }}
+              />
+              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", fontWeight: 600 }}>
+                {handle}
+              </span>
+            </div>
+          )}
           {tag("rgba(255,255,255,0.5)")}
           <div
             style={{
@@ -335,9 +329,11 @@ function SlideVisual({
               margin: "0 auto 8px",
             }}
           />
-          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", fontWeight: 600, marginBottom: 6 }}>
-            @davimoxoto
-          </div>
+          {handle && (
+            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", fontWeight: 600, marginBottom: 6 }}>
+              {handle}
+            </div>
+          )}
           {slide.subtitle && (
             <div style={{ fontSize: 7, letterSpacing: "1.5px", textTransform: "uppercase", color: "rgba(255,255,255,0.5)", marginBottom: 8 }}>
               {slide.subtitle}
@@ -371,7 +367,7 @@ function SlideVisual({
               fontWeight: 700,
             }}
           >
-            {slide.cta ?? "Seguir @davimoxoto"}
+            {slide.cta ?? (handle ? `Seguir ${handle}` : "Seguir para mais")}
           </div>
         </div>
         {progressBar}
@@ -564,9 +560,12 @@ interface Props {
   slides: Slide[];
   pieceId: string;
   onSlidesChange: (slides: Slide[]) => void;
+  brandColors?: { hex: string; role?: string }[];
+  brandHandle?: string | null;
 }
 
-export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
+export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, brandHandle }: Props) {
+  const B = deriveBrandTokens(brandColors, brandHandle);
   const [current, setCurrent] = useState(0);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Slide>(() => slides[0]);
@@ -652,7 +651,12 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
         const res = await fetch("/api/render/slide", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slide: slides[i], idx: i, total: slides.length }),
+          body: JSON.stringify({
+            slide: slides[i],
+            idx: i,
+            total: slides.length,
+            brand: { colors: brandColors, handle: brandHandle },
+          }),
         });
         if (!res.ok) continue;
         const blob = await res.blob();
@@ -883,7 +887,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
             className="rounded-lg overflow-hidden shadow-lg border border-border/50"
             style={{ width: 216, height: 270 }}
           >
-            <SlideVisual slide={currentSlide} idx={current} total={slides.length} />
+            <SlideVisual slide={currentSlide} idx={current} total={slides.length} B={B} />
           </div>
 
           {/* Layout label */}
@@ -921,7 +925,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
                 style={{ width: 44, height: 55 }}
                 title={`Slide ${i + 1}: ${s.title}`}
               >
-                <SlideVisual slide={s} idx={i} total={slides.length} />
+                <SlideVisual slide={s} idx={i} total={slides.length} B={B} />
               </button>
             ))}
           </div>
@@ -993,7 +997,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange }: Props) {
                     onChange={(e) =>
                       setDraft((d) => ({ ...d, cta: e.target.value || undefined }))
                     }
-                    placeholder="Seguir @davimoxoto"
+                    placeholder="Seguir para mais"
                     className="mt-1 text-sm"
                   />
                 </div>

@@ -1,19 +1,9 @@
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
 import { getBrandFonts } from "@/lib/render/fonts";
+import { deriveBrandTokens, type BrandTokens } from "@/lib/render/brand-tokens";
 
 export const runtime = "nodejs";
-
-// ── Brand tokens (mesmos do Studio) ──────────────────────────────────────────
-const B = {
-  primary: "#6B1A2A",
-  light: "#9B3A4A",
-  dark: "#3D0F18",
-  darkBg: "#180E0C",
-  lightBg: "#FAF7F2",
-  lightBorder: "#EDE8E0",
-  gradient: "linear-gradient(165deg,#3D0F18 0%,#6B1A2A 50%,#9B3A4A 100%)",
-};
 
 const W = 1080;
 const H = 1350;
@@ -61,7 +51,7 @@ function parseSteps(text: string) {
 }
 
 // ── Progress bar (compartilhado) ─────────────────────────────────────────────
-function ProgressBar({ idx, total, dark }: { idx: number; total: number; dark: boolean }) {
+function ProgressBar({ idx, total, dark, primary }: { idx: number; total: number; dark: boolean; primary: string }) {
   const pct = ((idx + 1) / total) * 100;
   return (
     <div
@@ -90,7 +80,7 @@ function ProgressBar({ idx, total, dark }: { idx: number; total: number; dark: b
             width: `${pct}%`,
             height: 10,
             borderRadius: 5,
-            background: dark ? "#ffffff" : B.primary,
+            background: dark ? "#ffffff" : primary,
           }}
         />
       </div>
@@ -110,7 +100,7 @@ function ProgressBar({ idx, total, dark }: { idx: number; total: number; dark: b
 }
 
 // ── Render por layout ────────────────────────────────────────────────────────
-function renderSlide(slide: SlideInput, idx: number, total: number) {
+function renderSlide(slide: SlideInput, idx: number, total: number, B: BrandTokens) {
   const body = slide.body ?? "";
   const layout = getLayout(body);
   const text = cleanBody(body);
@@ -205,7 +195,7 @@ function renderSlide(slide: SlideInput, idx: number, total: number) {
             </div>
           )}
         </div>
-        <ProgressBar idx={idx} total={total} dark={true} />
+        <ProgressBar idx={idx} total={total} dark={true} primary={B.primary} />
       </div>
     );
   }
@@ -360,7 +350,7 @@ function renderSlide(slide: SlideInput, idx: number, total: number) {
             </div>
           </div>
         ))}
-        <ProgressBar idx={idx} total={total} dark={false} />
+        <ProgressBar idx={idx} total={total} dark={false} primary={B.primary} />
       </div>
     );
   }
@@ -428,7 +418,7 @@ function renderSlide(slide: SlideInput, idx: number, total: number) {
             </div>
           </div>
         ))}
-        <ProgressBar idx={idx} total={total} dark={false} />
+        <ProgressBar idx={idx} total={total} dark={false} primary={B.primary} />
       </div>
     );
   }
@@ -478,7 +468,7 @@ function renderSlide(slide: SlideInput, idx: number, total: number) {
             ))}
           </div>
         )}
-        <ProgressBar idx={idx} total={total} dark={false} />
+        <ProgressBar idx={idx} total={total} dark={false} primary={B.primary} />
       </div>
     );
   }
@@ -529,7 +519,7 @@ function renderSlide(slide: SlideInput, idx: number, total: number) {
             ))}
           </div>
         )}
-        <ProgressBar idx={idx} total={total} dark={true} />
+        <ProgressBar idx={idx} total={total} dark={true} primary={B.primary} />
       </div>
     );
   }
@@ -578,7 +568,7 @@ function renderSlide(slide: SlideInput, idx: number, total: number) {
           ))}
         </div>
       )}
-      <ProgressBar idx={idx} total={total} dark={true} />
+      <ProgressBar idx={idx} total={total} dark={true} primary={B.primary} />
     </div>
   );
 }
@@ -586,19 +576,21 @@ function renderSlide(slide: SlideInput, idx: number, total: number) {
 // ── Handler ──────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   try {
-    const { slide, idx = 0, total = 1 } = (await request.json()) as {
+    const { slide, idx = 0, total = 1, brand } = (await request.json()) as {
       slide: SlideInput;
       idx?: number;
       total?: number;
+      brand?: { colors?: { hex: string; role?: string }[]; handle?: string | null };
     };
 
     if (!slide?.title) {
       return new Response("Slide inválido", { status: 400 });
     }
 
+    const tokens = deriveBrandTokens(brand?.colors, brand?.handle);
     const fonts = await getBrandFonts();
 
-    return new ImageResponse(renderSlide(slide, idx, total), {
+    return new ImageResponse(renderSlide(slide, idx, total, tokens), {
       width: W,
       height: H,
       fonts: fonts.length > 0 ? fonts : undefined,
