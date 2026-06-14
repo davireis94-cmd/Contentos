@@ -141,20 +141,20 @@ export function InterviewTab({
                 />
               </div>
             </div>
-            <div className="flex items-center justify-between mt-2">
-              <p className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
-                <FileText className="size-3" /> Use o <b>+</b> abaixo pra anexar documentos — o chat lê e preenche sozinho.
-              </p>
-              <a
-                href={`/api/brand/export?brandId=${brandId}`}
-                download
-                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                title="Baixar Brand Brain completo (.txt)"
-              >
-                <Download className="size-3" /> Exportar
-              </a>
-            </div>
+            <p className="text-[11px] text-muted-foreground mt-2 inline-flex items-center gap-1">
+              <FileText className="size-3" /> Use o <b>+</b> abaixo pra anexar documentos — o chat lê e preenche sozinho.
+            </p>
           </div>
+          {/* Botão export no canto superior direito do card */}
+          <a
+            href={`/api/brand/export?brandId=${brandId}`}
+            download
+            title="Baixar Brand Brain completo (.txt)"
+          >
+            <Button size="sm" variant="outline" className="shrink-0 h-8 text-xs gap-1.5">
+              <Download className="size-3" /> Exportar
+            </Button>
+          </a>
         </div>
       </div>
 
