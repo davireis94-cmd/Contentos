@@ -105,6 +105,7 @@ export interface FetchedTrend {
   platform: string; // 'youtube' | 'reddit'
   format: string; // 'reel' | 'post'
   publishedAt: string | null;
+  isReference?: boolean; // veio de um perfil de referência do usuário
   metrics: {
     views?: number;
     likes?: number;

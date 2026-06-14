@@ -1,11 +1,16 @@
 import { createClient } from "@supabase/supabase-js";
 import { fetchYouTubeTrends } from "./youtube";
 import { fetchRedditTrends } from "./reddit";
-import { fetchInstagramTrends } from "./instagram-trends";
-import { fetchTikTokTrends } from "./tiktok-trends";
+import { fetchInstagramTrends, fetchInstagramProfiles } from "./instagram-trends";
+import { fetchTikTokTrends, fetchTikTokProfiles } from "./tiktok-trends";
 import { NICHES, type FetchedTrend, type NicheConfig } from "./sources";
 
 export type TrendPlatform = "youtube" | "reddit" | "instagram" | "tiktok";
+
+export interface ReferenceProfiles {
+  instagram: string[];
+  tiktok: string[];
+}
 
 export interface SyncResult {
   youtube: number;
@@ -23,7 +28,8 @@ export interface SyncResult {
  */
 export async function syncTrends(
   niches: NicheConfig[] = NICHES,
-  platforms: TrendPlatform[] = ["youtube", "reddit"]
+  platforms: TrendPlatform[] = ["youtube", "reddit"],
+  profiles: ReferenceProfiles = { instagram: [], tiktok: [] }
 ): Promise<SyncResult> {
   const empty: SyncResult = { youtube: 0, reddit: 0, instagram: 0, tiktok: 0, total: 0 };
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -54,8 +60,24 @@ export async function syncTrends(
   const [youtube, reddit, instagram, tiktok] = await Promise.all([
     guard("youtube", () => fetchYouTubeTrends(niches)),
     guard("reddit", () => fetchRedditTrends(niches)),
-    guard("instagram", () => fetchInstagramTrends(niches)),
-    guard("tiktok", () => fetchTikTokTrends(niches)),
+    guard("instagram", async () => {
+      const [tags, refs] = await Promise.all([
+        fetchInstagramTrends(niches),
+        profiles.instagram.length
+          ? fetchInstagramProfiles(profiles.instagram).catch(() => [])
+          : Promise.resolve([]),
+      ]);
+      return [...refs, ...tags];
+    }),
+    guard("tiktok", async () => {
+      const [tags, refs] = await Promise.all([
+        fetchTikTokTrends(niches),
+        profiles.tiktok.length
+          ? fetchTikTokProfiles(profiles.tiktok).catch(() => [])
+          : Promise.resolve([]),
+      ]);
+      return [...refs, ...tags];
+    }),
   ]);
 
   const all: FetchedTrend[] = [...youtube, ...reddit, ...instagram, ...tiktok];
@@ -82,7 +104,7 @@ export async function syncTrends(
     author: t.author,
     platform: t.platform,
     format: t.format,
-    topic_tags: [t.niche],
+    topic_tags: t.isReference ? ["referencia", t.niche] : [t.niche],
     published_at: t.publishedAt,
     fetched_at: now,
     metrics: t.metrics,

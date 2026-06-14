@@ -2,6 +2,7 @@ import { runActor } from "./apify";
 import { NICHES, type FetchedTrend, type NicheConfig } from "./sources";
 
 const ACTOR = "apify~instagram-hashtag-scraper";
+const PROFILE_ACTOR = "apify~instagram-scraper";
 
 interface IgItem {
   error?: string;
@@ -42,6 +43,60 @@ function mapFormat(it: IgItem): string {
   return "single";
 }
 
+/** Converte um item do Apify (Instagram) em FetchedTrend. Retorna null se inválido. */
+function mapIgItem(it: IgItem, niche: string, isReference: boolean): FetchedTrend | null {
+  const id = it.shortCode ?? it.id;
+  if (!id || !it.url) return null;
+  const likes = it.likesCount ?? 0;
+  const comments = it.commentsCount ?? 0;
+  const views = it.videoPlayCount ?? it.videoViewCount ?? 0;
+  const engagementRate = views > 0 ? ((likes + comments) / views) * 100 : 0;
+
+  return {
+    source: "instagram",
+    externalId: id,
+    niche,
+    title: it.caption?.slice(0, 140) || `Post de @${it.ownerUsername ?? "instagram"}`,
+    description: it.caption?.slice(0, 500) ?? null,
+    sourceUrl: it.url,
+    thumbnailUrl: it.displayUrl ?? null,
+    author: it.ownerUsername ? `@${it.ownerUsername}` : null,
+    platform: "instagram",
+    format: mapFormat(it),
+    publishedAt: it.timestamp ?? null,
+    isReference,
+    metrics: {
+      likes,
+      comments,
+      ...(views > 0 ? { views } : {}),
+      ...(engagementRate > 0 ? { engagementRate: Number(engagementRate.toFixed(2)) } : {}),
+    },
+  };
+}
+
+/** Virais recentes de perfis de referência escolhidos pelo usuário. */
+export async function fetchInstagramProfiles(
+  handles: string[],
+  perProfile = 6
+): Promise<FetchedTrend[]> {
+  const clean = handles.map((h) => h.replace(/^@/, "").trim()).filter(Boolean).slice(0, 4);
+  if (clean.length === 0) return [];
+
+  const items = await runActor<IgItem>(PROFILE_ACTOR, {
+    directUrls: clean.map((h) => `https://www.instagram.com/${h}/`),
+    resultsType: "posts",
+    resultsLimit: perProfile,
+    addParentData: false,
+  });
+
+  const results: FetchedTrend[] = [];
+  for (const it of items) {
+    const mapped = mapIgItem(it, `@${it.ownerUsername ?? "ref"}`, true);
+    if (mapped) results.push(mapped);
+  }
+  return results; // referências são complemento: não lança erro se vier vazio
+}
+
 /**
  * Tendências do Instagram por hashtag do nicho (Apify, pago/econômico).
  * Limita nichos e resultados para caber no plano free (~US$5/mês).
@@ -60,34 +115,11 @@ export async function fetchInstagramTrends(
     resultsLimit: perTag,
   });
 
+  const niche = niches[0]?.tag ?? niches[0]?.id ?? "instagram";
   const results: FetchedTrend[] = [];
   for (const it of items) {
-    const id = it.shortCode ?? it.id;
-    if (!id || !it.url) continue;
-    const likes = it.likesCount ?? 0;
-    const comments = it.commentsCount ?? 0;
-    const views = it.videoPlayCount ?? it.videoViewCount ?? 0;
-    const engagementRate = views > 0 ? ((likes + comments) / views) * 100 : 0;
-
-    results.push({
-      source: "instagram",
-      externalId: id,
-      niche: niches[0]?.tag ?? niches[0]?.id ?? "instagram",
-      title: it.caption?.slice(0, 140) || `Post de @${it.ownerUsername ?? "instagram"}`,
-      description: it.caption?.slice(0, 500) ?? null,
-      sourceUrl: it.url,
-      thumbnailUrl: it.displayUrl ?? null,
-      author: it.ownerUsername ? `@${it.ownerUsername}` : null,
-      platform: "instagram",
-      format: mapFormat(it),
-      publishedAt: it.timestamp ?? null,
-      metrics: {
-        likes,
-        comments,
-        ...(views > 0 ? { views } : {}),
-        ...(engagementRate > 0 ? { engagementRate: Number(engagementRate.toFixed(2)) } : {}),
-      },
-    });
+    const mapped = mapIgItem(it, niche, false);
+    if (mapped) results.push(mapped);
   }
 
   // Diagnóstico: se veio dado mas nada mapeou, mostra os campos reais p/ ajuste.

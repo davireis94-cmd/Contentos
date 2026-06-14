@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Search,
   Sparkles,
+  Star,
   Trash2,
   TrendingUp,
   Video,
@@ -36,7 +37,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { addTrend, deleteTrend } from "@/app/(dashboard)/trends/actions";
+import {
+  addTrend,
+  deleteTrend,
+  saveReferenceProfiles,
+  type ReferenceProfile,
+} from "@/app/(dashboard)/trends/actions";
 
 export interface TrendMetrics {
   views?: number;
@@ -329,6 +335,103 @@ function AddTrendDialog({ currentUserId }: { currentUserId: string }) {
   );
 }
 
+// ── Perfis de referência ─────────────────────────────────────────────────────
+
+function ReferenceProfilesDialog({ initial }: { initial: ReferenceProfile[] }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [list, setList] = useState<ReferenceProfile[]>(initial);
+  const [platform, setPlatform] = useState<"instagram" | "tiktok">("instagram");
+  const [handle, setHandle] = useState("");
+  const [saving, startSave] = useTransition();
+
+  function add() {
+    const h = handle.trim().replace(/^@/, "").replace(/\s/g, "");
+    if (!h || list.some((p) => p.platform === platform && p.handle === h)) return;
+    setList([...list, { platform, handle: h }]);
+    setHandle("");
+  }
+
+  function save() {
+    startSave(async () => {
+      await saveReferenceProfiles(list);
+      setOpen(false);
+      router.refresh();
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline">
+          <Star className="mr-1.5 size-3.5" />
+          Perfis de referência
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Perfis de referência</DialogTitle>
+        </DialogHeader>
+        <p className="text-xs text-muted-foreground -mt-1">
+          Contas que você admira. Ao buscar tendências do Instagram/TikTok, os virais delas
+          entram junto, marcados com ⭐.
+        </p>
+
+        <div className="flex gap-2">
+          <Select value={platform} onValueChange={(v) => setPlatform(v as "instagram" | "tiktok")}>
+            <SelectTrigger className="w-32 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="instagram">Instagram</SelectItem>
+              <SelectItem value="tiktok">TikTok</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            placeholder="@perfil"
+            value={handle}
+            onChange={(e) => setHandle(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && add()}
+            className="flex-1 text-sm"
+          />
+          <Button type="button" size="sm" variant="outline" onClick={add}>
+            <Plus className="size-4" />
+          </Button>
+        </div>
+
+        <div className="space-y-1.5 max-h-52 overflow-y-auto">
+          {list.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-3 text-center">Nenhum perfil ainda.</p>
+          ) : (
+            list.map((p, i) => (
+              <div key={`${p.platform}-${p.handle}`} className="flex items-center justify-between rounded border px-2.5 py-1.5 text-sm">
+                <span>
+                  <Badge variant="outline" className={`mr-2 text-[10px] ${PLATFORM_COLORS[p.platform] ?? ""}`}>
+                    {PLATFORM_LABELS[p.platform]}
+                  </Badge>
+                  @{p.handle}
+                </span>
+                <button
+                  onClick={() => setList(list.filter((_, j) => j !== i))}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 pt-1">
+          <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button size="sm" onClick={save} disabled={saving}>
+            {saving && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+            Salvar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Trend Card ──────────────────────────────────────────────────────────────
 
 function TrendCard({
@@ -387,6 +490,12 @@ function TrendCard({
           <div className="absolute top-2 right-2 flex items-center gap-1 text-[10px] bg-emerald-500 text-white px-1.5 py-0.5 rounded font-medium">
             <Video className="size-2.5" />
             Transcrição
+          </div>
+        )}
+        {trend.topic_tags.includes("referencia") && (
+          <div className="absolute bottom-2 left-2 flex items-center gap-1 text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-medium">
+            <Star className="size-2.5" fill="white" />
+            Referência
           </div>
         )}
         {isGlobal && (
@@ -695,10 +804,12 @@ export function TrendsClient({
   trends,
   currentUserId,
   brandKeywords = [],
+  referenceProfiles = [],
 }: {
   trends: Trend[];
   currentUserId: string;
   brandKeywords?: string[];
+  referenceProfiles?: ReferenceProfile[];
 }) {
   const router = useRouter();
   const [platform, setPlatform] = useState("all");
@@ -852,6 +963,7 @@ export function TrendsClient({
           >
             <RefreshCw className={`size-3.5 ${syncing ? "animate-spin" : ""}`} />
           </Button>
+          <ReferenceProfilesDialog initial={referenceProfiles} />
           <AddTrendDialog currentUserId={currentUserId} />
         </div>
       </div>

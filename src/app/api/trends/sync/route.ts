@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { syncTrends, type TrendPlatform } from "@/lib/trends/sync";
+import { syncTrends, type TrendPlatform, type ReferenceProfiles } from "@/lib/trends/sync";
 import { brandNiches, NICHES, type NicheConfig } from "@/lib/trends/sources";
 import { suggestNiches } from "@/lib/trends/ai-niches";
 
@@ -78,6 +78,40 @@ async function nichesForUser(request: NextRequest): Promise<NicheConfig[]> {
   }
 }
 
+/** Lê os perfis de referência guardados em brand.identity. */
+async function profilesForUser(request: NextRequest): Promise<ReferenceProfiles> {
+  const empty: ReferenceProfiles = { instagram: [], tiktok: [] };
+  try {
+    const supabase = userClient(request);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return empty;
+    const { data: workspace } = await supabase
+      .from("workspaces")
+      .select("id")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!workspace) return empty;
+    const { data: brand } = await supabase
+      .from("brands")
+      .select("identity")
+      .eq("workspace_id", workspace.id)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    const list = ((brand?.identity ?? {}) as {
+      reference_profiles?: { platform: string; handle: string }[];
+    }).reference_profiles;
+    if (!Array.isArray(list)) return empty;
+    return {
+      instagram: list.filter((p) => p.platform === "instagram").map((p) => p.handle),
+      tiktok: list.filter((p) => p.platform === "tiktok").map((p) => p.handle),
+    };
+  } catch {
+    return empty;
+  }
+}
+
 export async function GET(request: NextRequest) {
   // Caminho do cron: nichos globais padrão.
   const cronSecret = process.env.CRON_SECRET;
@@ -109,7 +143,8 @@ export async function POST(request: NextRequest) {
   const niches = await nichesForUser(request);
 
   if (platform === "instagram" || platform === "tiktok") {
-    const result = await syncTrends(niches, [platform as TrendPlatform]);
+    const profiles = await profilesForUser(request);
+    const result = await syncTrends(niches, [platform as TrendPlatform], profiles);
     const status = result.error && result.total === 0 ? 502 : 200;
     return NextResponse.json(result, { status });
   }

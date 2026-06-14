@@ -34,6 +34,54 @@ export async function addTrend(formData: FormData) {
   revalidatePath("/trends");
 }
 
+export interface ReferenceProfile {
+  platform: "instagram" | "tiktok";
+  handle: string; // sem @
+}
+
+/** Lê os perfis de referência guardados na marca do workspace. */
+export async function getReferenceProfiles(): Promise<ReferenceProfile[]> {
+  const { user, workspace, supabase } = await getSessionContext();
+  if (!user || !workspace) return [];
+  const { data: brand } = await supabase
+    .from("brands")
+    .select("identity")
+    .eq("workspace_id", workspace.id)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const identity = (brand?.identity ?? {}) as { reference_profiles?: ReferenceProfile[] };
+  return Array.isArray(identity.reference_profiles) ? identity.reference_profiles : [];
+}
+
+/** Salva (substitui) a lista de perfis de referência da marca. */
+export async function saveReferenceProfiles(profiles: ReferenceProfile[]) {
+  const { user, workspace, supabase } = await getSessionContext();
+  if (!user || !workspace) redirect("/login");
+
+  const { data: brand } = await supabase
+    .from("brands")
+    .select("id, identity")
+    .eq("workspace_id", workspace.id)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!brand) return { error: "Marca não encontrada" };
+
+  const clean = profiles
+    .filter((p) => p.handle?.trim())
+    .map((p) => ({
+      platform: p.platform === "tiktok" ? "tiktok" : "instagram",
+      handle: p.handle.trim().replace(/^@/, "").replace(/\s/g, ""),
+    }))
+    .slice(0, 10) as ReferenceProfile[];
+
+  const identity = { ...((brand.identity ?? {}) as object), reference_profiles: clean };
+  await supabase.from("brands").update({ identity }).eq("id", brand.id);
+  revalidatePath("/trends");
+  return { ok: true };
+}
+
 export async function deleteTrend(id: string) {
   const { user, supabase } = await getSessionContext();
   if (!user) redirect("/login");

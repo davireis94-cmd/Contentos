@@ -3,6 +3,7 @@ import { getSessionContext } from "@/lib/queries/context";
 import { PageHeader } from "@/components/layout/page-header";
 import { TrendsClient } from "@/components/trends/trends-client";
 import type { Trend } from "@/components/trends/trends-client";
+import { getReferenceProfiles } from "./actions";
 
 export default async function TrendsPage() {
   const { user, workspace, supabase } = await getSessionContext();
@@ -51,6 +52,7 @@ export default async function TrendsPage() {
         trends={(trends ?? []) as Trend[]}
         currentUserId={user.id}
         brandKeywords={brandKeywords}
+        referenceProfiles={await getReferenceProfiles()}
       />
     </div>
   );
