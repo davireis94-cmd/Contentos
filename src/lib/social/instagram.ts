@@ -144,6 +144,28 @@ export interface IgPostMetric {
   comments: number;
   reach: number;
   saved: number;
+  shares: number;
+  views: number;
+  totalInteractions: number;
+}
+
+export interface IgFollowerPoint {
+  date: string; // ISO
+  value: number; // novos seguidores no dia
+}
+
+export interface IgDemographics {
+  locked: boolean;
+  followersNeeded: number; // quantos faltam para 100 (0 se já desbloqueado)
+  topCountries: { name: string; value: number }[];
+  topCities: { name: string; value: number }[];
+  genderAge: { name: string; value: number }[];
+}
+
+export interface IgAccountInsights {
+  followerGrowth: IgFollowerPoint[];
+  profileViews: number;
+  reach28d: number;
 }
 
 export interface IgInsights {
@@ -152,6 +174,110 @@ export interface IgInsights {
   username: string;
   profilePicture: string | null;
   posts: IgPostMetric[];
+  account: IgAccountInsights | null;
+  demographics: IgDemographics | null;
+}
+
+/** Lê uma métrica de insights da conta de forma defensiva (não lança). */
+async function tryAccountMetric(
+  igUserId: string,
+  token: string,
+  params: Record<string, string>
+): Promise<{ name: string; values?: { value: number; end_time?: string }[]; total_value?: { value: number; breakdowns?: { results: { dimension_values: string[]; value: number }[] }[] } }[] | null> {
+  try {
+    const data = await gget<{
+      data: {
+        name: string;
+        values?: { value: number; end_time?: string }[];
+        total_value?: { value: number; breakdowns?: { results: { dimension_values: string[]; value: number }[] }[] };
+      }[];
+    }>(`/${igUserId}/insights`, { access_token: token, ...params });
+    return data.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Insights de conta: crescimento de seguidores, visitas ao perfil, alcance. */
+async function fetchAccountInsights(igUserId: string, token: string): Promise<IgAccountInsights> {
+  const until = Math.floor(Date.now() / 1000);
+  const since = until - 30 * 24 * 3600;
+
+  let followerGrowth: IgFollowerPoint[] = [];
+  const fc = await tryAccountMetric(igUserId, token, {
+    metric: "follower_count",
+    period: "day",
+    since: String(since),
+    until: String(until),
+  });
+  const fcValues = fc?.find((m) => m.name === "follower_count")?.values;
+  if (fcValues) {
+    followerGrowth = fcValues.map((v) => ({
+      date: v.end_time ?? "",
+      value: v.value ?? 0,
+    }));
+  }
+
+  let profileViews = 0;
+  const pv = await tryAccountMetric(igUserId, token, {
+    metric: "profile_views",
+    period: "day",
+    metric_type: "total_value",
+    since: String(since),
+    until: String(until),
+  });
+  profileViews = pv?.find((m) => m.name === "profile_views")?.total_value?.value ?? 0;
+
+  let reach28d = 0;
+  const rc = await tryAccountMetric(igUserId, token, {
+    metric: "reach",
+    period: "day",
+    metric_type: "total_value",
+    since: String(since),
+    until: String(until),
+  });
+  reach28d = rc?.find((m) => m.name === "reach")?.total_value?.value ?? 0;
+
+  return { followerGrowth, profileViews, reach28d };
+}
+
+/** Demografia do público — só liberada pela Meta a partir de 100 seguidores. */
+async function fetchDemographics(
+  igUserId: string,
+  token: string,
+  followersCount: number
+): Promise<IgDemographics> {
+  if (followersCount < 100) {
+    return {
+      locked: true,
+      followersNeeded: 100 - followersCount,
+      topCountries: [],
+      topCities: [],
+      genderAge: [],
+    };
+  }
+
+  const breakdown = async (dim: string) => {
+    const d = await tryAccountMetric(igUserId, token, {
+      metric: "follower_demographics",
+      period: "lifetime",
+      metric_type: "total_value",
+      breakdown: dim,
+    });
+    const results = d?.find((m) => m.name === "follower_demographics")?.total_value?.breakdowns?.[0]?.results ?? [];
+    return results
+      .map((r) => ({ name: r.dimension_values.join(" "), value: r.value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+  };
+
+  const [topCountries, topCities, genderAge] = await Promise.all([
+    breakdown("country"),
+    breakdown("city"),
+    breakdown("age"),
+  ]);
+
+  return { locked: false, followersNeeded: 0, topCountries, topCities, genderAge };
 }
 
 /** Busca métricas da conta + dos posts recentes. */
@@ -184,23 +310,36 @@ export async function fetchInsights(igUserId: string, token: string): Promise<Ig
     access_token: token,
   });
 
+  // Lê insights de um post com a lista de métricas rica; se a Meta recusar
+  // (algum tipo de mídia não suporta uma métrica), cai para o conjunto mínimo.
+  async function postInsights(mediaId: string): Promise<Record<string, number>> {
+    const parse = (data: { data?: { name: string; values?: { value: number }[] }[] }) => {
+      const out: Record<string, number> = {};
+      for (const metric of data.data ?? []) out[metric.name] = metric.values?.[0]?.value ?? 0;
+      return out;
+    };
+    try {
+      const ins = await gget<{ data: { name: string; values?: { value: number }[] }[] }>(
+        `/${mediaId}/insights`,
+        { metric: "reach,saved,shares,total_interactions,views", access_token: token }
+      );
+      return parse(ins);
+    } catch {
+      try {
+        const ins = await gget<{ data: { name: string; values?: { value: number }[] }[] }>(
+          `/${mediaId}/insights`,
+          { metric: "reach,saved", access_token: token }
+        );
+        return parse(ins);
+      } catch {
+        return {};
+      }
+    }
+  }
+
   const posts: IgPostMetric[] = [];
   for (const m of media.data ?? []) {
-    let reach = 0;
-    let saved = 0;
-    try {
-      const ins = await gget<{ data: { name: string; values: { value: number }[] }[] }>(
-        `/${m.id}/insights`,
-        { metric: "reach,saved", access_token: token }
-      );
-      for (const metric of ins.data ?? []) {
-        const v = metric.values?.[0]?.value ?? 0;
-        if (metric.name === "reach") reach = v;
-        if (metric.name === "saved") saved = v;
-      }
-    } catch {
-      // insights podem não existir p/ alguns tipos de mídia
-    }
+    const ins = await postInsights(m.id);
     posts.push({
       id: m.id,
       caption: m.caption?.slice(0, 120) ?? "",
@@ -210,16 +349,29 @@ export async function fetchInsights(igUserId: string, token: string): Promise<Ig
       timestamp: m.timestamp,
       likes: m.like_count ?? 0,
       comments: m.comments_count ?? 0,
-      reach,
-      saved,
+      reach: ins.reach ?? 0,
+      saved: ins.saved ?? 0,
+      shares: ins.shares ?? 0,
+      views: ins.views ?? 0,
+      totalInteractions: ins.total_interactions ?? 0,
     });
   }
 
+  const followersCount = acc.followers_count ?? 0;
+
+  // Conta e demografia em paralelo (defensivos — nunca derrubam a página).
+  const [account, demographics] = await Promise.all([
+    fetchAccountInsights(igUserId, token).catch(() => null),
+    fetchDemographics(igUserId, token, followersCount).catch(() => null),
+  ]);
+
   return {
-    followersCount: acc.followers_count ?? 0,
+    followersCount,
     mediaCount: acc.media_count ?? 0,
     username: acc.username,
     profilePicture: acc.profile_picture_url ?? null,
     posts,
+    account,
+    demographics,
   };
 }

@@ -13,6 +13,11 @@ import {
   Camera,
   Play,
   Layers,
+  Send,
+  TrendingUp,
+  Lock,
+  MapPin,
+  UserCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -27,6 +32,28 @@ interface PostMetric {
   comments: number;
   reach: number;
   saved: number;
+  shares: number;
+  views: number;
+  totalInteractions: number;
+}
+
+interface FollowerPoint {
+  date: string;
+  value: number;
+}
+
+interface Demographics {
+  locked: boolean;
+  followersNeeded: number;
+  topCountries: { name: string; value: number }[];
+  topCities: { name: string; value: number }[];
+  genderAge: { name: string; value: number }[];
+}
+
+interface AccountInsights {
+  followerGrowth: FollowerPoint[];
+  profileViews: number;
+  reach28d: number;
 }
 
 interface Insights {
@@ -35,6 +62,8 @@ interface Insights {
   username: string;
   profilePicture: string | null;
   posts: PostMetric[];
+  account: AccountInsights | null;
+  demographics: Demographics | null;
 }
 
 function compact(n: number): string {
@@ -164,14 +193,35 @@ export function InstagramAnalytics({ isConnected, username, justConnected, conne
       ) : insights ? (
         <>
           {/* Cards de visão geral */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <StatCard icon={Users} label="Seguidores" value={compact(insights.followersCount)} />
             <StatCard icon={Grid3x3} label="Publicações" value={compact(insights.mediaCount)} />
             <StatCard
               icon={Eye}
-              label="Alcance (últimos posts)"
-              value={compact(insights.posts.reduce((s, p) => s + p.reach, 0))}
+              label="Alcance (30 dias)"
+              value={compact(insights.account?.reach28d || insights.posts.reduce((s, p) => s + p.reach, 0))}
             />
+            <StatCard
+              icon={UserCircle2}
+              label="Visitas ao perfil"
+              value={compact(insights.account?.profileViews ?? 0)}
+            />
+            <StatCard
+              icon={Send}
+              label="Compart. (posts)"
+              value={compact(insights.posts.reduce((s, p) => s + p.shares, 0))}
+            />
+            <StatCard
+              icon={Bookmark}
+              label="Salvos (posts)"
+              value={compact(insights.posts.reduce((s, p) => s + p.saved, 0))}
+            />
+          </div>
+
+          {/* Crescimento de seguidores + Demografia */}
+          <div className="grid lg:grid-cols-2 gap-4">
+            <FollowerGrowth points={insights.account?.followerGrowth ?? []} />
+            <DemographicsCard demo={insights.demographics} followers={insights.followersCount} />
           </div>
 
           {/* Posts — grade estilo feed */}
@@ -213,13 +263,18 @@ export function InstagramAnalytics({ isConnected, username, justConnected, conne
                       <Layers className="absolute right-1.5 top-1.5 size-4 text-white drop-shadow" />
                     )}
                     {/* Overlay com métricas ao passar o mouse */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black/55 text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black/60 text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                       <div className="flex items-center gap-3 text-xs font-semibold">
                         <span className="flex items-center gap-1"><Heart className="size-3.5" fill="white" />{compact(p.likes)}</span>
                         <span className="flex items-center gap-1"><MessageCircle className="size-3.5" fill="white" />{compact(p.comments)}</span>
+                        <span className="flex items-center gap-1"><Send className="size-3.5" />{compact(p.shares)}</span>
                       </div>
                       <div className="flex items-center gap-3 text-[11px] text-white/90">
-                        <span className="flex items-center gap-1"><Eye className="size-3" />{compact(p.reach)}</span>
+                        {p.views > 0 ? (
+                          <span className="flex items-center gap-1"><Play className="size-3" fill="white" />{compact(p.views)}</span>
+                        ) : (
+                          <span className="flex items-center gap-1"><Eye className="size-3" />{compact(p.reach)}</span>
+                        )}
                         <span className="flex items-center gap-1"><Bookmark className="size-3" />{compact(p.saved)}</span>
                       </div>
                     </div>
@@ -239,9 +294,109 @@ function StatCard({ icon: Icon, label, value }: { icon: typeof Users; label: str
     <div className="rounded-xl border bg-card p-4">
       <div className="flex items-center gap-2 mb-2">
         <Icon className="size-4 text-muted-foreground" />
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
+        <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide leading-tight">{label}</span>
       </div>
       <p className="text-2xl font-bold">{value}</p>
+    </div>
+  );
+}
+
+function FollowerGrowth({ points }: { points: FollowerPoint[] }) {
+  const net = points.reduce((s, p) => s + p.value, 0);
+  const max = Math.max(1, ...points.map((p) => Math.abs(p.value)));
+
+  return (
+    <div className="rounded-xl border bg-card p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="size-4 text-muted-foreground" />
+          <span className="text-sm font-semibold">Crescimento de seguidores</span>
+        </div>
+        <span className={`text-sm font-bold ${net >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+          {net >= 0 ? "+" : ""}{net} <span className="text-xs font-normal text-muted-foreground">/ 30 dias</span>
+        </span>
+      </div>
+      {points.length === 0 ? (
+        <p className="text-xs text-muted-foreground py-6 text-center">
+          Sem dados de crescimento ainda — o Instagram leva alguns dias acumulando.
+        </p>
+      ) : (
+        <div className="flex items-end gap-0.5 h-24">
+          {points.map((p, i) => {
+            const h = Math.max(2, (Math.abs(p.value) / max) * 100);
+            return (
+              <div
+                key={i}
+                className={`flex-1 rounded-sm ${p.value >= 0 ? "bg-primary/70" : "bg-destructive/60"}`}
+                style={{ height: `${h}%` }}
+                title={`${new Date(p.date).toLocaleDateString("pt-BR")}: ${p.value >= 0 ? "+" : ""}${p.value}`}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DemoBar({ name, value, total }: { name: string; value: number; total: number }) {
+  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+  return (
+    <div className="space-y-0.5">
+      <div className="flex justify-between text-xs">
+        <span className="truncate">{name}</span>
+        <span className="text-muted-foreground shrink-0 ml-2">{pct}%</span>
+      </div>
+      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+        <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function DemographicsCard({ demo, followers }: { demo: Demographics | null; followers: number }) {
+  if (!demo || demo.locked) {
+    const needed = demo?.followersNeeded ?? Math.max(0, 100 - followers);
+    const pct = Math.min(100, Math.round((followers / 100) * 100));
+    return (
+      <div className="rounded-xl border bg-card p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Lock className="size-4 text-muted-foreground" />
+          <span className="text-sm font-semibold">Demografia do público</span>
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          O Instagram libera dados de cidade, idade e gênero do seu público a partir de{" "}
+          <b>100 seguidores</b>. Faltam <b>{needed}</b>.
+        </p>
+        <div className="h-2 rounded-full bg-muted overflow-hidden mb-1">
+          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+        </div>
+        <p className="text-[11px] text-muted-foreground text-right">{followers}/100</p>
+      </div>
+    );
+  }
+
+  const countriesTotal = demo.topCountries.reduce((s, c) => s + c.value, 0);
+  const agesTotal = demo.genderAge.reduce((s, c) => s + c.value, 0);
+
+  return (
+    <div className="rounded-xl border bg-card p-4 space-y-4">
+      <div className="flex items-center gap-2">
+        <MapPin className="size-4 text-muted-foreground" />
+        <span className="text-sm font-semibold">Demografia do público</span>
+      </div>
+      {demo.topCountries.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Países</p>
+          {demo.topCountries.map((c) => <DemoBar key={c.name} name={c.name} value={c.value} total={countriesTotal} />)}
+        </div>
+      )}
+      {demo.genderAge.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Faixa etária</p>
+          {demo.genderAge.map((c) => <DemoBar key={c.name} name={c.name} value={c.value} total={agesTotal} />)}
+        </div>
+      )}
     </div>
   );
 }
