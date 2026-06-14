@@ -45,23 +45,15 @@ export async function fetchInstagramTrends(
   niches: NicheConfig[] = NICHES,
   perTag = 12
 ): Promise<FetchedTrend[]> {
-  if (!process.env.APIFY_TOKEN) return [];
-
   const tags = Array.from(
     new Set(niches.map(hashtagOf).filter((t) => t.length > 2))
   ).slice(0, 2); // no máx 2 hashtags p/ economizar crédito
-  if (tags.length === 0) return [];
+  if (tags.length === 0) throw new Error("Sem hashtags do nicho (preencha os pilares no Brand Brain)");
 
-  let items: IgItem[] = [];
-  try {
-    items = await runActor<IgItem>(ACTOR, {
-      hashtags: tags,
-      resultsLimit: perTag,
-    });
-  } catch (err) {
-    console.error("[instagram-trends] apify failed:", err);
-    return [];
-  }
+  const items = await runActor<IgItem>(ACTOR, {
+    hashtags: tags,
+    resultsLimit: perTag,
+  });
 
   const results: FetchedTrend[] = [];
   for (const it of items) {

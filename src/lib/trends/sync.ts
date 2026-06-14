@@ -37,16 +37,35 @@ export async function syncTrends(
   });
 
   const want = new Set(platforms);
+  const errors: string[] = [];
+  const guard = async (
+    name: TrendPlatform,
+    fn: () => Promise<FetchedTrend[]>
+  ): Promise<FetchedTrend[]> => {
+    if (!want.has(name)) return [];
+    try {
+      return await fn();
+    } catch (err) {
+      errors.push(`${name}: ${err instanceof Error ? err.message : String(err)}`);
+      return [];
+    }
+  };
+
   const [youtube, reddit, instagram, tiktok] = await Promise.all([
-    want.has("youtube") ? fetchYouTubeTrends(niches) : Promise.resolve([]),
-    want.has("reddit") ? fetchRedditTrends(niches) : Promise.resolve([]),
-    want.has("instagram") ? fetchInstagramTrends(niches) : Promise.resolve([]),
-    want.has("tiktok") ? fetchTikTokTrends(niches) : Promise.resolve([]),
+    guard("youtube", () => fetchYouTubeTrends(niches)),
+    guard("reddit", () => fetchRedditTrends(niches)),
+    guard("instagram", () => fetchInstagramTrends(niches)),
+    guard("tiktok", () => fetchTikTokTrends(niches)),
   ]);
 
   const all: FetchedTrend[] = [...youtube, ...reddit, ...instagram, ...tiktok];
   if (all.length === 0) {
-    return { ...empty, error: "Nenhuma tendência coletada (verifique a fonte/chaves)" };
+    return {
+      ...empty,
+      error: errors.length
+        ? errors.join(" | ")
+        : "Nenhuma tendência coletada (nada retornado da fonte)",
+    };
   }
 
   const now = new Date().toISOString();

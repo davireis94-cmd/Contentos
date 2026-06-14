@@ -9,7 +9,7 @@ export async function runActor<T = unknown>(
   timeoutSecs = 50
 ): Promise<T[]> {
   const token = process.env.APIFY_TOKEN;
-  if (!token) return [];
+  if (!token) throw new Error("APIFY_TOKEN ausente (configure no Vercel + redeploy)");
 
   const url = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${token}&timeout=${timeoutSecs}`;
   const res = await fetch(url, {

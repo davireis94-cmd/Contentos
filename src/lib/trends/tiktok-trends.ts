@@ -38,27 +38,19 @@ export async function fetchTikTokTrends(
   niches: NicheConfig[] = NICHES,
   perTag = 12
 ): Promise<FetchedTrend[]> {
-  if (!process.env.APIFY_TOKEN) return [];
-
   const tags = Array.from(
     new Set(niches.map(hashtagOf).filter((t) => t.length > 2))
   ).slice(0, 2);
-  if (tags.length === 0) return [];
+  if (tags.length === 0) throw new Error("Sem hashtags do nicho (preencha os pilares no Brand Brain)");
 
-  let items: TtItem[] = [];
-  try {
-    items = await runActor<TtItem>(ACTOR, {
-      hashtags: tags,
-      resultsPerPage: perTag,
-      shouldDownloadVideos: false,
-      shouldDownloadCovers: false,
-      shouldDownloadSubtitles: false,
-      shouldDownloadSlideshowImages: false,
-    });
-  } catch (err) {
-    console.error("[tiktok-trends] apify failed:", err);
-    return [];
-  }
+  const items = await runActor<TtItem>(ACTOR, {
+    hashtags: tags,
+    resultsPerPage: perTag,
+    shouldDownloadVideos: false,
+    shouldDownloadCovers: false,
+    shouldDownloadSubtitles: false,
+    shouldDownloadSlideshowImages: false,
+  });
 
   const results: FetchedTrend[] = [];
   for (const it of items) {
