@@ -82,5 +82,19 @@ export async function fetchTikTokTrends(
       },
     });
   }
+
+  // Diagnóstico: se veio dado mas nada mapeou, mostra os campos reais p/ ajuste.
+  if (results.length === 0) {
+    if (items.length === 0) {
+      throw new Error(`Apify OK, 0 itens para #${tags.join(", #")}`);
+    }
+    throw new Error(
+      `Apify devolveu ${items.length} itens em formato inesperado. Campos: ${Object.keys(
+        items[0] as object
+      )
+        .slice(0, 20)
+        .join(",")}`
+    );
+  }
   return results;
 }
