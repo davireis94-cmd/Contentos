@@ -9,7 +9,9 @@ import {
   Image,
   Loader2,
   Pencil,
+  Plus,
   Send,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
@@ -61,6 +63,20 @@ const LAYOUT_LABELS: Record<string, string> = {
   "step-list": "Lista de passos",
   gradient: "Gradiente (CTA)",
 };
+
+// Layouts que aceitam corpo de texto comum (troca com 1 clique, sem reformatar).
+const QUICK_LAYOUTS = ["dark", "dark-photo", "light", "gradient"] as const;
+
+/** Troca o [Layout: x] no corpo do slide, preservando o resto do texto. */
+function setLayoutToken(body: string, layout: string): string {
+  const cleaned = (body ?? "").replace(/\n?\[Layout:\s*[a-z-]+\]/gi, "").trimEnd();
+  return `${cleaned}\n[Layout: ${layout}]`;
+}
+
+/** Reatribui index sequencial após adicionar/remover/mover slides. */
+function reindex(slides: Slide[]): Slide[] {
+  return slides.map((s, i) => ({ ...s, index: i }));
+}
 
 // ── Slide Visual Component ─────────────────────────────────────────────────
 
@@ -740,6 +756,46 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
     });
   }
 
+  function persist(next: Slide[]) {
+    onSlidesChange(next);
+    startSave(() => void updateSlides(pieceId, next));
+  }
+
+  function applyLayout(layoutKey: string) {
+    const next = slides.map((s) =>
+      s.index === currentSlide.index ? { ...s, body: setLayoutToken(s.body ?? "", layoutKey) } : s
+    );
+    persist(next);
+    if (editing) setDraft((d) => ({ ...d, body: setLayoutToken(d.body ?? "", layoutKey) }));
+  }
+
+  function addSlide() {
+    const insertAt = current + 1;
+    const blank: Slide = { index: insertAt, title: "Novo slide", body: "Escreva o conteúdo aqui\n[Layout: dark]" };
+    const next = reindex([...slides.slice(0, insertAt), blank, ...slides.slice(insertAt)]);
+    persist(next);
+    setCurrent(insertAt);
+    setEditing(false);
+  }
+
+  function removeSlide() {
+    if (slides.length <= 1) return;
+    const next = reindex(slides.filter((_, i) => i !== current));
+    persist(next);
+    setCurrent(Math.max(0, current - 1));
+    setEditing(false);
+  }
+
+  function moveSlide(dir: -1 | 1) {
+    const j = current + dir;
+    if (j < 0 || j >= slides.length) return;
+    const arr = [...slides];
+    [arr[current], arr[j]] = [arr[j], arr[current]];
+    const next = reindex(arr);
+    persist(next);
+    setCurrent(j);
+  }
+
   const layout = getLayout(currentSlide.body ?? "");
 
   return (
@@ -897,6 +953,41 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
             </span>
           </div>
 
+          {/* Controles de slides */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => moveSlide(-1)}
+              disabled={current === 0}
+              title="Mover para a esquerda"
+              className="rounded-md border p-1.5 hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="size-3.5" />
+            </button>
+            <button
+              onClick={addSlide}
+              title="Adicionar slide"
+              className="flex items-center gap-1 rounded-md border px-2 py-1.5 text-[11px] font-medium hover:bg-accent transition-colors"
+            >
+              <Plus className="size-3.5" /> Slide
+            </button>
+            <button
+              onClick={removeSlide}
+              disabled={slides.length <= 1}
+              title="Remover slide"
+              className="rounded-md border p-1.5 hover:bg-destructive/10 hover:text-destructive disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+            <button
+              onClick={() => moveSlide(1)}
+              disabled={current === slides.length - 1}
+              title="Mover para a direita"
+              className="rounded-md border p-1.5 hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight className="size-3.5" />
+            </button>
+          </div>
+
           {/* Dot navigation */}
           <div className="flex gap-1 flex-wrap justify-center max-w-[200px]">
             {slides.map((_, i) => (
@@ -946,6 +1037,33 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
                 Editar
               </Button>
             )}
+          </div>
+
+          {/* Seletor de layout (1 clique) */}
+          <div className="mb-4">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5">
+              Estilo do slide
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {QUICK_LAYOUTS.map((l) => (
+                <button
+                  key={l}
+                  onClick={() => applyLayout(l)}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+                    layout === l
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                  }`}
+                >
+                  {LAYOUT_LABELS[l]}
+                </button>
+              ))}
+              {(layout === "feature-list" || layout === "step-list") && (
+                <span className="px-2.5 py-1 rounded-md text-[11px] font-medium border border-primary bg-primary text-primary-foreground">
+                  {LAYOUT_LABELS[layout]}
+                </span>
+              )}
+            </div>
           </div>
 
           {editing ? (
