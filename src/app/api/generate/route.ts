@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
           supabase
             .from("brands")
             .select(
-              `id, name, description,
+              `id, name, description, identity,
                brand_voice ( tone, target_audience, content_pillars, characteristic_phrases, forbidden_words ),
                brand_examples ( content ),
                brand_documents ( extracted_content )`
@@ -141,6 +141,9 @@ export async function POST(request: NextRequest) {
           documents,
           references,
           externalRef: input.externalRef,
+          extras: ((brand as { identity?: { brain_extras?: unknown } }).identity?.brain_extras ?? null) as
+            | import("@/lib/brand/extras").BrandExtras
+            | null,
         };
 
         const systemPrompt = buildSystemPrompt(brandContext, input);

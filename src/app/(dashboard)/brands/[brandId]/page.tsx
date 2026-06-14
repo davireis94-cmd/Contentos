@@ -10,8 +10,10 @@ import { ExamplesTab } from "./tabs/examples-tab";
 import { ReferencesTab } from "./tabs/references-tab";
 import { DocumentsTab } from "./tabs/documents-tab";
 import { SuggestionsTab } from "./tabs/suggestions-tab";
+import { InterviewTab } from "./tabs/interview-tab";
+import type { BrandExtras } from "@/lib/brand/extras";
 
-const VALID_TABS = ["identity", "voice", "examples", "references", "documents", "suggestions"];
+const VALID_TABS = ["identity", "voice", "examples", "references", "documents", "interview", "suggestions"];
 
 export default async function BrandDetailPage({
   params,
@@ -101,6 +103,7 @@ export default async function BrandDetailPage({
             <TabsTrigger value="documents">
               Documentos ({documents?.length ?? 0})
             </TabsTrigger>
+            <TabsTrigger value="interview">Entrevista ✦</TabsTrigger>
             <TabsTrigger value="suggestions">Sugestões ✦</TabsTrigger>
           </TabsList>
 
@@ -125,6 +128,14 @@ export default async function BrandDetailPage({
               brandId={brand.id}
               workspaceId={workspace.id}
               initialDocuments={documents ?? []}
+            />
+          </TabsContent>
+          <TabsContent value="interview" className="mt-4">
+            <InterviewTab
+              brandId={brand.id}
+              initialExtras={
+                ((brand.identity ?? {}) as { brain_extras?: BrandExtras }).brain_extras ?? null
+              }
             />
           </TabsContent>
           <TabsContent value="suggestions" className="mt-4">

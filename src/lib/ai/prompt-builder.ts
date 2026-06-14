@@ -1,4 +1,5 @@
 import type { GenerationInput } from "@/lib/validations/generation";
+import { renderExtrasForPrompt, type BrandExtras } from "@/lib/brand/extras";
 
 interface DocumentContext {
   resumo?: string;
@@ -33,6 +34,7 @@ interface BrandContext {
   documents?: DocumentContext[];
   references?: ReferencePost[];
   externalRef?: string;
+  extras?: BrandExtras | null;
 }
 
 const OBJECTIVE_LABELS: Record<string, string> = {
@@ -275,6 +277,7 @@ Tom: ${toneDesc}
 Pilares de conteúdo: ${pillars}
 Frases características (incorpore quando encaixar naturalmente): ${phrases}
 Palavras PROIBIDAS (nunca aparecem): ${forbidden}
+${renderExtrasForPrompt(brand.extras) ? `\n## ESTRATÉGIA DA MARCA (use para dar opinião, profundidade e direção)\n${renderExtrasForPrompt(brand.extras)}` : ""}
 
 ## EXEMPLOS DE POSTS REAIS DESTA MARCA
 ${examplesSection}
