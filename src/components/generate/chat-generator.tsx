@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Loader2, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StreamOutput, type GenerationState } from "./stream-output";
+import { ArtifactPanel } from "./artifact-panel";
 import type { GenerationOutput } from "@/lib/validations/generation";
 
 interface ChatMsg { role: "user" | "assistant"; content: string }
@@ -167,18 +168,14 @@ export function ChatGenerator({ brandId, brands }: { brandId: string; brands: { 
         </div>
       )}
 
-      {/* Generated output */}
-      {genState.status === "done" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">Post gerado a partir da conversa</p>
-            <Button variant="ghost" size="sm" onClick={reset} className="h-7 text-xs">
-              Criar outro
-            </Button>
-          </div>
-          <StreamOutput state={genState} />
-        </div>
-      )}
+      {/* Generated output — painel lateral grande (estilo artifact), minimizável */}
+      <ArtifactPanel
+        active={genState.status === "done"}
+        title="Post gerado a partir da conversa"
+        onClose={reset}
+      >
+        <StreamOutput state={genState} />
+      </ArtifactPanel>
     </div>
   );
 }

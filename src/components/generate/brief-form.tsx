@@ -23,6 +23,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { StreamOutput, type GenerationState } from "./stream-output";
+import { ArtifactPanel } from "./artifact-panel";
 import { UrlImporter, type ImportedContent } from "./url-importer";
 import type { GenerationOutput } from "@/lib/validations/generation";
 import { FRAMEWORKS } from "@/lib/ai/frameworks";
@@ -255,7 +256,7 @@ export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, 
   const selectedPieces = recentPieces.filter((p) => selectedRefs.includes(p.id));
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
+    <div className="space-y-6">
       {/* Form */}
       <Card>
         <CardContent className="pt-5">
@@ -635,22 +636,14 @@ export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, 
         </CardContent>
       </Card>
 
-      {/* Output */}
-      <div>
-        {generationState.status === "idle" ? (
-          <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed py-16 text-center">
-            <Sparkles className="mb-3 size-8 text-muted-foreground/40" />
-            <p className="text-sm font-medium">O conteúdo aparecerá aqui</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {selectedRefs.length > 0
-                ? `Gerará com base em ${selectedRefs.length} post${selectedRefs.length > 1 ? "s" : ""} de referência`
-                : "Preencha o briefing e clique em Gerar"}
-            </p>
-          </div>
-        ) : (
-          <StreamOutput state={generationState} />
-        )}
-      </div>
+      {/* Output — abre num painel lateral grande (estilo artifact), minimizável */}
+      <ArtifactPanel
+        active={generationState.status !== "idle"}
+        title={generationState.status === "running" ? "Gerando conteúdo…" : "Conteúdo gerado"}
+        onClose={() => setGenerationState({ status: "idle" })}
+      >
+        <StreamOutput state={generationState} />
+      </ArtifactPanel>
     </div>
   );
 }
