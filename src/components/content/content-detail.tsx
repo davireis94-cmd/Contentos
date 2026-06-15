@@ -7,7 +7,7 @@ import { DeletePieceButton } from "@/components/content/delete-piece-button";
 import { CarouselStudio } from "@/components/content/carousel-studio";
 
 function stripNote(body: string): string {
-  return body.replace(/\n?\[[^\]:]+:[^\]]*\]/g, "").trim();
+  return (body ?? "").replace(/\n?\[[^\]:]+:[^\]]*\]/g, "").trim();
 }
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

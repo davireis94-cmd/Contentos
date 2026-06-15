@@ -33,23 +33,23 @@ import { deriveBrandTokens, type BrandTokens } from "@/lib/render/brand-tokens";
 // ── Slide parsing helpers ──────────────────────────────────────────────────
 
 function getLayout(body: string): string {
-  const m = body.match(/\[Layout:\s*([a-z-]+)\]/i);
+  const m = (body ?? "").match(/\[Layout:\s*([a-z-]+)\]/i);
   return m?.[1]?.toLowerCase() ?? "dark";
 }
 
 function cleanBody(body: string): string {
-  return body.replace(/\n?\[[^\]:]+:[^\]]*\]/gi, "").trim();
+  return (body ?? "").replace(/\n?\[[^\]:]+:[^\]]*\]/gi, "").trim();
 }
 
 function parseFeatures(body: string) {
-  return body.split("\n").filter((l) => l.includes("|")).map((l) => {
+  return (body ?? "").split("\n").filter((l) => l.includes("|")).map((l) => {
     const [icon = "", title = "", desc = ""] = l.split("|").map((p) => p.trim());
     return { icon, title, desc };
   }).filter((i) => i.title).slice(0, 4);
 }
 
 function parseSteps(body: string) {
-  return body.split("\n").filter((l) => l.includes("|")).map((l) => {
+  return (body ?? "").split("\n").filter((l) => l.includes("|")).map((l) => {
     const [num = "01", title = "", desc = ""] = l.split("|").map((p) => p.trim());
     return { num, title, desc };
   }).filter((i) => i.title).slice(0, 4);
