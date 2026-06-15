@@ -33,6 +33,7 @@ export default async function BrandDetailPage({
     { data: voice },
     { data: examples },
     { data: documents },
+    { count: referencesCount },
   ] = await Promise.all([
     supabase.from("brands").select("*").eq("id", brandId).maybeSingle(),
     supabase.from("brand_voice").select("*").eq("brand_id", brandId).maybeSingle(),
@@ -46,6 +47,10 @@ export default async function BrandDetailPage({
       .select("id, name, file_type, file_size_bytes, extracted_content, created_at")
       .eq("brand_id", brandId)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("brand_references")
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", brandId),
   ]);
 
   if (!brand) notFound();
@@ -71,7 +76,7 @@ export default async function BrandDetailPage({
     voice,
     examples?.length ?? 0,
     documents?.length ?? 0,
-    0,
+    referencesCount ?? 0,
     docExtracted
   );
   const liveScore = computeLiveScore(qualityItems);

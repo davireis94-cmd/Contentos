@@ -10,6 +10,7 @@ export interface QualityItem {
   critical: boolean;
   detail?: string;
   fromDocs?: boolean;
+  href?: string; // destino customizado (ex: página separada) em vez de aba do brand
 }
 
 interface VoiceData {
@@ -135,12 +136,13 @@ export function computeQualityItems(
     },
     {
       id: "references",
-      label: "Referências de mercado",
+      label: "Benchmark (referências)",
       status:
         referencesCount >= 2 ? "done" : referencesCount === 1 ? "partial" : "missing",
       impact: "Calibra o conteúdo pelo que funciona no seu nicho.",
       hint: "Adicione 2–3 perfis que você admira — a IA analisa o que funciona para eles.",
       tab: "references",
+      href: "/references",
       critical: false,
       detail: referencesCount < 2 ? `${referencesCount}/2` : undefined,
     },

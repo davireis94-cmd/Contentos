@@ -108,7 +108,7 @@ export function QualityGuide({ brandId, score, items }: Props) {
                 )}
               </div>
               <Link
-                href={`/brands/${brandId}?tab=${item.tab}`}
+                href={item.href ?? `/brands/${brandId}?tab=${item.tab}`}
                 className="shrink-0 text-xs font-medium text-primary hover:underline whitespace-nowrap"
               >
                 Preencher →
@@ -141,7 +141,7 @@ export function QualityGuide({ brandId, score, items }: Props) {
                 )}
               </div>
               <Link
-                href={`/brands/${brandId}?tab=${item.tab}`}
+                href={item.href ?? `/brands/${brandId}?tab=${item.tab}`}
                 className="shrink-0 text-xs text-muted-foreground hover:text-primary whitespace-nowrap transition-colors"
               >
                 Preencher →
