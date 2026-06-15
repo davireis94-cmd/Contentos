@@ -10,6 +10,7 @@ import {
   Home,
   LayoutGrid,
   Library,
+  Lightbulb,
   LogOut,
   Sparkles,
   Star,
@@ -21,6 +22,7 @@ import { cn } from "@/lib/utils";
 const NAV_ITEMS = [
   { href: "/", activePath: "/", label: "Dashboard", icon: Home },
   { href: "/brands", activePath: "/brands", label: "Brand Brain", icon: Sparkles },
+  { href: "/ideas", activePath: "/ideas", label: "Ideias de pauta", icon: Lightbulb },
   { href: "/generate", activePath: "/generate", label: "Gerar conteúdo", icon: Wand2 },
   { href: "/generate?ext=1", activePath: "none", label: "Recriar post", icon: Globe },
   { href: "/references", activePath: "/references", label: "Benchmark", icon: Star },
