@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, Loader2, Sparkles, Trash2, Wand2, Play, Layers, Heart, MessageCircle, Eye, RefreshCw } from "lucide-react";
+import { ExternalLink, Loader2, Sparkles, Trash2, Wand2, Play, Layers, Heart, MessageCircle, Eye, RefreshCw, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -77,6 +77,60 @@ function fmt(n: number | undefined): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return String(n);
+}
+
+const FORMAT_LABEL: Record<string, string> = {
+  reel: "Reels",
+  carousel: "Carrossel",
+  single: "Post único",
+  image: "Imagem",
+};
+
+/** Agrega os posts carregados num resumo de desempenho (estilo Métricas). */
+function computeRefStats(posts: RefPost[]) {
+  if (!posts.length) return null;
+  const sum = (sel: (p: RefPost) => number | undefined) =>
+    posts.reduce((s, p) => s + (sel(p) ?? 0), 0);
+  const avgLikes = Math.round(sum((p) => p.metrics.likes) / posts.length);
+  const avgComments = Math.round(sum((p) => p.metrics.comments) / posts.length);
+  // Formato dominante entre os melhores posts.
+  const byFormat = posts.reduce<Record<string, number>>((acc, p) => {
+    acc[p.format] = (acc[p.format] ?? 0) + 1;
+    return acc;
+  }, {});
+  const topFormat = Object.entries(byFormat).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
+  // Post campeão (mais engajamento = likes + comentários).
+  const best = [...posts].sort(
+    (a, b) =>
+      (b.metrics.likes ?? 0) + (b.metrics.comments ?? 0) - (a.metrics.likes ?? 0) - (a.metrics.comments ?? 0)
+  )[0];
+  const bestEng = best ? (best.metrics.likes ?? 0) + (best.metrics.comments ?? 0) : 0;
+  return { count: posts.length, avgLikes, avgComments, topFormat, bestEng };
+}
+
+function RefStat({ icon: Icon, label, value }: { icon: typeof Heart; label: string; value: string }) {
+  return (
+    <div className="rounded-lg border bg-muted/30 px-3 py-2">
+      <div className="flex items-center gap-1 mb-0.5">
+        <Icon className="size-3 text-muted-foreground" />
+        <span className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground leading-none">{label}</span>
+      </div>
+      <p className="text-base font-bold leading-tight">{value}</p>
+    </div>
+  );
+}
+
+function RefStatsStrip({ posts }: { posts: RefPost[] }) {
+  const s = computeRefStats(posts);
+  if (!s) return null;
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <RefStat icon={Layers} label="Posts" value={String(s.count)} />
+      <RefStat icon={Heart} label="Média curtidas" value={fmt(s.avgLikes)} />
+      <RefStat icon={MessageCircle} label="Média coment." value={fmt(s.avgComments)} />
+      <RefStat icon={TrendingUp} label={`Top: ${FORMAT_LABEL[s.topFormat] ?? s.topFormat}`} value={fmt(s.bestEng)} />
+    </div>
+  );
 }
 
 function PostCard({ post }: { post: RefPost }) {
@@ -306,6 +360,9 @@ function ReferenceCard({ reference, brandId, voice }: { reference: Reference; br
             )}
             {posts && posts.length > 0 && (
               <>
+                <div className="mb-3">
+                  <RefStatsStrip posts={posts} />
+                </div>
                 <div className="grid grid-cols-3 gap-1.5">
                   {posts.map((p) => <PostCard key={p.externalId} post={p} />)}
                 </div>
@@ -419,7 +476,7 @@ function ReferenceCard({ reference, brandId, voice }: { reference: Reference; br
 export function ReferencesTab({ brandId, references, voice }: ReferencesTabProps) {
   return (
     <div className="space-y-4">
-      <Card>
+      <Card className="max-w-2xl">
         <CardContent className="pt-5">
           <form action={addReference} className="space-y-4">
             <input type="hidden" name="brandId" value={brandId} />
@@ -453,9 +510,11 @@ export function ReferencesTab({ brandId, references, voice }: ReferencesTabProps
         </div>
       )}
 
-      {references.map((ref) => (
-        <ReferenceCard key={ref.id} reference={ref} brandId={brandId} voice={voice} />
-      ))}
+      <div className="grid items-start gap-4 xl:grid-cols-2">
+        {references.map((ref) => (
+          <ReferenceCard key={ref.id} reference={ref} brandId={brandId} voice={voice} />
+        ))}
+      </div>
     </div>
   );
 }

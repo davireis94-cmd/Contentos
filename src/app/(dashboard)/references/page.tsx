@@ -37,7 +37,7 @@ export default async function ReferencesPage() {
         title="Benchmark"
         description={`Perfis que inspiram o conteúdo de ${brand.name} — a IA usa a estratégia e o estilo deles ao gerar. Veja os melhores posts e gere similar.`}
       />
-      <div className="flex-1 p-6 max-w-2xl">
+      <div className="flex-1 p-6">
         <ReferencesTab
           brandId={brand.id}
           references={references ?? []}
