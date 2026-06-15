@@ -219,7 +219,8 @@ Ao final do campo "body" de CADA slide, inclua obrigatoriamente:
 [Layout: tipo]
 
 Tipos disponíveis:
-- dark-photo: fundo escuro com foto de background (use SEMPRE no slide 0/hook e em slides de virada dramática)
+- editorial: capa estilo revista — título GIGANTE condensado em maiúscula sobre foto/fundo escuro, com 1-2 palavras-chave destacadas (use SEMPRE no slide 0/hook e em slides de virada dramática)
+- dark-photo: fundo escuro com foto de background (alternativa ao editorial para viradas)
 - dark: fundo escuro sólido (problema, contexto, afirmações fortes, dados)
 - light: fundo creme claro (informação, conclusão, insight, análise)
 - feature-list: fundo creme com lista de 3 features com ícone (use quando o slide descreve "o que faz" com múltiplos benefícios)
@@ -227,7 +228,7 @@ Tipos disponíveis:
 - gradient: gradiente vinho escuro (SOMENTE no último slide, sempre)
 
 Regras fixas:
-- Slide índice 0: SEMPRE dark-photo
+- Slide índice 0: SEMPRE editorial. No campo "title", envolva em *asteriscos* a(s) 1-2 palavra(s) mais impactante(s) do gancho — elas saem na cor da marca e sublinhadas. Ex: "POR QUE NÃO TEMOS *HITS* EM 2025?". O "subtitle" deste slide é uma micro-frase curta de tensão (ex: "Algo estranho está acontecendo").
 - Último slide: SEMPRE gradient, com CTA no campo "cta"
 
 Formato obrigatório do body para feature-list (uma feature por linha, antes da nota):
@@ -341,9 +342,9 @@ Retorne APENAS JSON válido, sem markdown, sem explicações, sem \`\`\`json.
   "slides": [
     {
       "index": 0,
-      "title": "título do slide — impactante, direto, específico",
-      "subtitle": "tag ou subtítulo opcional (ex: categoria do pilar de conteúdo)",
-      "body": "corpo com profundidade real — desenvolva o argumento, não apenas enumere pontos${input.format === "carousel" ? "\n[Layout: dark-photo]" : ""}${input.productionTool ? `\n[${input.productionTool}: instrução específica para este slide]` : ""}",
+      "title": "título do slide 0 — gancho impactante com a palavra-chave em *asteriscos*",
+      "subtitle": "micro-frase de tensão (1 linha curta)",
+      "body": "corpo com profundidade real — desenvolva o argumento, não apenas enumere pontos${input.format === "carousel" ? "\n[Layout: editorial]" : ""}${input.productionTool ? `\n[${input.productionTool}: instrução específica para este slide]` : ""}",
       "cta": "call to action (apenas no último slide)"
     }
   ],

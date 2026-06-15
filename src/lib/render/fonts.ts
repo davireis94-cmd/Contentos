@@ -61,15 +61,18 @@ export async function getBrandFonts(
   const loadWithFallback = async (family: string, fallback: string, weight: number) =>
     (await loadGoogleFont(family, weight)) ?? (await loadGoogleFont(fallback, weight));
 
-  const [head700, body400, body600] = await Promise.all([
+  const [head700, body400, body600, anton] = await Promise.all([
     loadWithFallback(heading, "Playfair Display", 700),
     loadWithFallback(body, "Inter", 400),
     loadWithFallback(body, "Inter", 600),
+    // Fonte display do layout "editorial" — condensada e pesada (estilo capa).
+    loadGoogleFont("Anton", 400),
   ]);
 
   const fonts: FontDef[] = [];
   if (head700) fonts.push({ name: "Playfair", data: head700, weight: 700, style: "normal" });
   if (body400) fonts.push({ name: "Inter", data: body400, weight: 400, style: "normal" });
   if (body600) fonts.push({ name: "Inter", data: body600, weight: 600, style: "normal" });
+  if (anton) fonts.push({ name: "Anton", data: anton, weight: 400, style: "normal" });
   return fonts;
 }

@@ -29,6 +29,7 @@ import type { Slide } from "@/lib/validations/generation";
 import { updateSlides } from "@/app/(dashboard)/content/[pieceId]/actions";
 import { IMAGE_MODEL_DEFS } from "@/lib/images/models";
 import { deriveBrandTokens, type BrandTokens } from "@/lib/render/brand-tokens";
+import { parseTitleHighlight } from "@/lib/render/highlight";
 
 // ── Slide parsing helpers ──────────────────────────────────────────────────
 
@@ -57,6 +58,7 @@ function parseSteps(body: string) {
 
 const LAYOUT_LABELS: Record<string, string> = {
   "dark-photo": "Escuro c/ foto",
+  editorial: "Capa (editorial)",
   dark: "Escuro sólido",
   light: "Claro",
   "feature-list": "Lista de features",
@@ -65,7 +67,7 @@ const LAYOUT_LABELS: Record<string, string> = {
 };
 
 // Layouts que aceitam corpo de texto comum (troca com 1 clique, sem reformatar).
-const QUICK_LAYOUTS = ["dark", "dark-photo", "light", "gradient"] as const;
+const QUICK_LAYOUTS = ["editorial", "dark", "dark-photo", "light", "gradient"] as const;
 
 /** Troca o [Layout: x] no corpo do slide, preservando o resto do texto. */
 function setLayoutToken(body: string, layout: string): string {
@@ -96,7 +98,7 @@ function SlideVisual({
   const layout = getLayout(body);
   const text = cleanBody(body);
   const pct = ((idx + 1) / total) * 100;
-  const isDark = layout !== "light" && layout !== "feature-list" && layout !== "step-list";
+  const isDark = layout === "editorial" || (layout !== "light" && layout !== "feature-list" && layout !== "step-list");
   const isLast = idx === total - 1;
 
   const progressBar = (
@@ -187,6 +189,78 @@ function SlideVisual({
         {slide.subtitle ?? ""}
       </div>
     ) : null;
+
+  // ── editorial (estilo capa / makemusicnow) — preview ──
+  if (layout === "editorial") {
+    const segs = parseTitleHighlight(slide.title);
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          position: "relative",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+          background: B.darkBg,
+        }}
+      >
+        {slide.imageUrl ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={slide.imageUrl}
+              alt=""
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background:
+                  "linear-gradient(to bottom,rgba(10,6,5,0.15) 0%,rgba(10,6,5,0.55) 50%,rgba(10,6,5,0.94) 100%)",
+              }}
+            />
+          </>
+        ) : (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: `radial-gradient(ellipse at 70% 18%, ${B.dark} 0%, ${B.darkBg} 62%)`,
+            }}
+          />
+        )}
+        <div style={{ position: "relative", zIndex: 2, padding: "0 16px 34px" }}>
+          {slide.subtitle && (
+            <div style={{ fontSize: 7, fontStyle: "italic", color: "rgba(255,255,255,0.75)", marginBottom: 5, fontFamily: "Georgia,serif" }}>
+              {slide.subtitle}
+            </div>
+          )}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: "0 5px" }}>
+            {segs.map((s, i) => (
+              <span
+                key={i}
+                style={{
+                  fontSize: 23,
+                  lineHeight: 1.0,
+                  textTransform: "uppercase",
+                  fontFamily: "var(--font-anton), Impact, sans-serif",
+                  color: s.hl ? B.primary : "#fff",
+                  borderBottom: s.hl ? `2px solid ${B.primary}` : "none",
+                }}
+              >
+                {s.text}
+              </span>
+            ))}
+          </div>
+        </div>
+        {progressBar}
+        {swipeHint}
+      </div>
+    );
+  }
 
   // ── imagem IA de fundo (preview) ──
   if (slide.imageUrl) {

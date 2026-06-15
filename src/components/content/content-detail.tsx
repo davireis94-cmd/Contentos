@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Check, ClipboardCopy, Copy, Loader2, Pencil, Send, Wand2, X } from "lucide-react";
 import { DeletePieceButton } from "@/components/content/delete-piece-button";
 import { CarouselStudio } from "@/components/content/carousel-studio";
+import { stripHighlightMarks } from "@/lib/render/highlight";
 
 function stripNote(body: string): string {
   return (body ?? "").replace(/\n?\[[^\]:]+:[^\]]*\]/g, "").trim();
@@ -107,7 +108,7 @@ function SlideCard({
     setEditing(false);
   }
 
-  const copyText = [slide.title, slide.subtitle, slide.body, slide.cta]
+  const copyText = [stripHighlightMarks(slide.title), slide.subtitle, slide.body, slide.cta]
     .filter(Boolean)
     .join("\n"); // body kept with production note for copy
 
@@ -157,7 +158,7 @@ function SlideCard({
                 {isHook ? "Hook — " : ""}Slide {slide.index + 1}
               </p>
               <p className={`font-medium leading-snug ${isHook ? "text-base" : "text-sm"}`}>
-                {slide.title}
+                {stripHighlightMarks(slide.title)}
               </p>
               {slide.subtitle && (
                 <p className="mt-0.5 text-xs text-muted-foreground">{slide.subtitle}</p>

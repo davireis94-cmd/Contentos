@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Inter, Space_Grotesk, Anton } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+  display: "swap",
+});
+
+// Fonte display condensada pesada — usada no layout "editorial" (estilo capa de revista).
+const anton = Anton({
+  variable: "--font-anton",
+  subsets: ["latin"],
+  weight: "400",
   display: "swap",
 });
 
@@ -28,7 +36,7 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`${inter.variable} ${spaceGrotesk.variable} h-full antialiased`}
+      className={`${inter.variable} ${spaceGrotesk.variable} ${anton.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans">{children}</body>
     </html>

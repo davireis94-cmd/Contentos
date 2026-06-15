@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
 import { getBrandFonts } from "@/lib/render/fonts";
 import { deriveBrandTokens, type BrandTokens } from "@/lib/render/brand-tokens";
+import { parseTitleHighlight } from "@/lib/render/highlight";
 
 export const runtime = "nodejs";
 
@@ -104,7 +105,103 @@ function renderSlide(slide: SlideInput, idx: number, total: number, B: BrandToke
   const body = slide.body ?? "";
   const layout = getLayout(body);
   const text = cleanBody(body);
-  const isDark = layout === "dark" || layout === "dark-photo" || layout === "gradient";
+  const isDark = layout === "dark" || layout === "dark-photo" || layout === "gradient" || layout === "editorial";
+
+  // ── editorial (estilo capa / makemusicnow): título condensado gigante, palavra
+  //    em destaque na cor da marca + sublinhado, sobre foto ou fundo escuro. ──
+  if (layout === "editorial") {
+    const segs = parseTitleHighlight(slide.title);
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+          width: W,
+          height: H,
+          position: "relative",
+          backgroundColor: B.darkBg,
+        }}
+      >
+        {slide.imageUrl ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={slide.imageUrl}
+              width={W}
+              height={H}
+              style={{ position: "absolute", top: 0, left: 0, width: W, height: H, objectFit: "cover" }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: W,
+                height: H,
+                background:
+                  "linear-gradient(to bottom, rgba(10,6,5,0.15) 0%, rgba(10,6,5,0.55) 50%, rgba(10,6,5,0.94) 100%)",
+              }}
+            />
+          </>
+        ) : (
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: W,
+              height: H,
+              background: `radial-gradient(ellipse at 70% 18%, ${B.dark} 0%, ${B.darkBg} 62%)`,
+            }}
+          />
+        )}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            position: "relative",
+            padding: "0 90px 210px",
+          }}
+        >
+          {slide.subtitle && (
+            <div
+              style={{
+                fontSize: 34,
+                fontFamily: "Playfair",
+                fontStyle: "italic",
+                color: "rgba(255,255,255,0.75)",
+                marginBottom: 26,
+              }}
+            >
+              {slide.subtitle}
+            </div>
+          )}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end" }}>
+            {segs.map((s, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  fontSize: 130,
+                  fontFamily: "Anton",
+                  textTransform: "uppercase",
+                  lineHeight: 1.0,
+                  color: s.hl ? B.primary : "#ffffff",
+                  marginRight: 26,
+                  borderBottom: s.hl ? `12px solid ${B.primary}` : "none",
+                  paddingBottom: s.hl ? 2 : 0,
+                }}
+              >
+                {s.text}
+              </div>
+            ))}
+          </div>
+        </div>
+        <ProgressBar idx={idx} total={total} dark={true} primary={B.primary} />
+      </div>
+    );
+  }
 
   // ── Imagem IA de fundo (Fase 2.2) — sobrepõe texto com overlay legível ──
   if (slide.imageUrl) {
