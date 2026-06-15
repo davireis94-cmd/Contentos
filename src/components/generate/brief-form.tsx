@@ -523,7 +523,8 @@ export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, 
               </div>
             )}
 
-            {/* External reference post — URL import */}
+            {/* External reference post — só na tela "Recriar post" (?ext=1), não no gerador normal */}
+            {defaultExt && (
             <div className="space-y-2">
               <button
                 type="button"
@@ -551,6 +552,7 @@ export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, 
                 </div>
               )}
             </div>
+            )}
 
             {/* Objective */}
             <div className="space-y-2">

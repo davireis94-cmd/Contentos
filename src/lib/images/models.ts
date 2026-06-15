@@ -10,7 +10,8 @@ export interface ImageModelDef {
   key: string; // bate com pricing.ts IMAGE_MODELS
   label: string;
   hint: string;
-  replicatePath: string; // owner/model no Replicate
+  provider?: "replicate" | "gemini"; // padrão: replicate
+  replicatePath: string; // owner/model no Replicate (vazio p/ gemini)
   buildInput: (prompt: string) => Record<string, unknown>;
 }
 
@@ -54,11 +55,19 @@ export const IMAGE_MODEL_DEFS: ImageModelDef[] = [
   {
     key: "nano-banana-pro",
     label: "Nano Banana",
-    hint: "Google Gemini Image",
+    hint: "Google Gemini Image (via Replicate)",
     replicatePath: "google/nano-banana",
     buildInput: (prompt) => ({
       prompt,
     }),
+  },
+  {
+    key: "gemini-free",
+    label: "Gemini (grátis)",
+    hint: "Google Gemini direto — grátis, com limite diário",
+    provider: "gemini",
+    replicatePath: "",
+    buildInput: (prompt) => ({ prompt }),
   },
 ];
 

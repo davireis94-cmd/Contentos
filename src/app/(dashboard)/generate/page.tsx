@@ -39,7 +39,10 @@ export default async function GeneratePage({
 
   const trend = trendResult.data;
   const defaultBrand = brandId ?? brands?.[0]?.id;
-  const activeTab = mode === "chat" ? "chat" : "brief";
+  // Chat é a aba padrão. Vai pro Briefing quando há intenção estruturada
+  // (recriar post, referência, tópico vindo de tendência) ou mode=brief explícito.
+  const hasBriefIntent = mode === "brief" || !!ref || !!ext || !!topic || !!trendId;
+  const activeTab = mode === "chat" ? "chat" : hasBriefIntent ? "brief" : "chat";
 
   return (
     <div className="flex flex-col gap-6 p-6">

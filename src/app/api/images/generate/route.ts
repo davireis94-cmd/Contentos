@@ -80,22 +80,23 @@ export async function POST(request: NextRequest) {
   const slideTopic = topic?.trim() || (piece.title as string) || "tema do post";
   const prompt = buildImagePrompt(slideTopic, brandCtx);
 
-  // Gera no Replicate
+  // Gera (Replicate ou Gemini direto)
   const result = await generateImage(model, prompt);
-  if (result.error || !result.url) {
+  if (result.error || (!result.url && !result.b64)) {
     return NextResponse.json({ error: result.error ?? "Falha na geração" }, { status: 502 });
   }
 
-  // Persiste no Storage (URL do Replicate expira) via service role
-  let publicUrl = result.url;
+  // Persiste no Storage (URL do Replicate expira; Gemini vem em base64) via service role
+  let publicUrl = result.url ?? "";
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (serviceKey) {
     try {
       const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey, {
         auth: { persistSession: false },
       });
-      const imgRes = await fetch(result.url);
-      const bytes = new Uint8Array(await imgRes.arrayBuffer());
+      const bytes = result.b64
+        ? new Uint8Array(Buffer.from(result.b64, "base64"))
+        : new Uint8Array(await (await fetch(result.url!)).arrayBuffer());
       const path = `${piece.workspace_id}/${pieceId}/slide-${slideIndex}-${Date.now()}.png`;
       const { error: upErr } = await admin.storage
         .from("slide-images")
@@ -107,6 +108,14 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       console.error("[images/generate] storage upload failed, using provider URL:", err);
     }
+  }
+
+  // Fallback: se não subiu pro Storage mas temos base64 (Gemini), usa data URL.
+  if (!publicUrl && result.b64) {
+    publicUrl = `data:image/png;base64,${result.b64}`;
+  }
+  if (!publicUrl) {
+    return NextResponse.json({ error: "Imagem gerada mas falha ao salvar." }, { status: 502 });
   }
 
   // Registra custo + créditos

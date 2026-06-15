@@ -47,6 +47,7 @@ export const IMAGE_MODELS: Record<string, number> = {
   "imagen-3": 0.04,
   "ideogram-v2": 0.08, // bom para texto dentro da imagem
   "nano-banana-pro": 0.13, // Gemini Image Pro
+  "gemini-free": 0, // Gemini direto (free tier do Google) — custo USD zero
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
