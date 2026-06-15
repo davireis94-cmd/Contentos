@@ -29,7 +29,8 @@ export const DEFAULT_TOKENS: BrandTokens = {
 function clamp(n: number): number {
   return Math.max(0, Math.min(255, Math.round(n)));
 }
-function hexToRgb(hex: string): [number, number, number] | null {
+function hexToRgb(hex: string | null | undefined): [number, number, number] | null {
+  if (typeof hex !== "string") return null;
   const h = hex.trim().replace(/^#/, "");
   const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
   if (!/^[0-9a-fA-F]{6}$/.test(full)) return null;
