@@ -120,6 +120,9 @@ export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, 
   const [showExtRef, setShowExtRef] = useState(!!defaultExt);
   const [importedRef, setImportedRef] = useState<ImportedContent | null>(null);
   const [framework, setFramework] = useState("");
+  // Tópico controlado: limita a 500 (limite do schema) e mostra contador, para
+  // não dar "Dados inválidos" quando vem pré-preenchido com texto longo.
+  const [topicVal, setTopicVal] = useState((defaultTopic ?? "").slice(0, 500));
 
   const filteredPieces = recentPieces.filter((p) => {
     const matchesSearch =
@@ -330,12 +333,19 @@ export function BriefForm({ brands, defaultBrandId, recentPieces, defaultRefId, 
                 rows={3}
                 required
                 minLength={3}
-                defaultValue={defaultTopic}
+                maxLength={500}
+                value={topicVal}
+                onChange={(e) => setTopicVal(e.target.value.slice(0, 500))}
                 placeholder="Ex: 3 erros que impedem empresários de escalar sem contratar mais pessoas"
               />
-              <p className="text-xs text-muted-foreground">
-                Quanto mais específico, mais certeiro o conteúdo.
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Quanto mais específico, mais certeiro o conteúdo.
+                </p>
+                <p className={`text-xs ${topicVal.length >= 500 ? "text-amber-600" : "text-muted-foreground"}`}>
+                  {topicVal.length}/500
+                </p>
+              </div>
             </div>
 
             {/* Framework de copy */}

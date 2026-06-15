@@ -681,6 +681,14 @@ function passesQualityFloor(t: Trend): boolean {
   return true;
 }
 
+// Posts de "marco" (agradecimento por X seguidores, "chegamos a 10 mil" etc.):
+// performam bem mas NÃO servem de referência de conteúdo. Filtrados por padrão.
+const MILESTONE_RE =
+  /(\d+\s*(mil|k)\s*seguidores|obrigad[oa]\b|chegamos a|alcançamos|marca de \d|\bmilest)/i;
+function isMilestonePost(t: Trend): boolean {
+  return MILESTONE_RE.test(`${t.title} ${t.description ?? ""}`);
+}
+
 /** Um trend é relevante ao nicho se alguma palavra-chave da marca aparece nele. */
 function matchesNiche(trend: Trend, keywords: string[]): boolean {
   if (keywords.length === 0) return true;
@@ -838,6 +846,7 @@ export function TrendsClient({
   // Coleta já é feita por nicho (hashtags/buscas da marca), então o filtro
   // por palavra-chave começa DESLIGADO para não cortar resultados válidos.
   const [nicheOnly, setNicheOnly] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const [lang, setLang] = useState<"all" | "pt" | "en" | "es">("all");
   const [minPerf, setMinPerf] = useState<"all" | "mid" | "high">("all");
   const [excludeWords, setExcludeWords] = useState("");
@@ -893,14 +902,16 @@ export function TrendsClient({
           if (t.platform !== platform) return false;
           if (sub !== "all" && t.format !== sub) return false;
         }
+        // Posts de "marco" (X seguidores/obrigado) não são referência — fora por padrão.
+        if (!showAll && platform !== "saved" && isMilestonePost(t)) return false;
         // Piso de qualidade: esconde lixo de baixo engajamento (exceto refs/manuais)
-        if (platform !== "saved" && !passesQualityFloor(t)) return false;
+        if (!showAll && platform !== "saved" && !passesQualityFloor(t)) return false;
         // Personalização por nicho (não aplica em "Minhas refs")
-        if (nicheOnly && platform !== "saved" && !matchesNiche(t, brandKeywords)) {
+        if (!showAll && nicheOnly && platform !== "saved" && !matchesNiche(t, brandKeywords)) {
           return false;
         }
         // Idioma / origem
-        if (lang !== "all" && detectLang(`${t.title} ${t.description ?? ""}`) !== lang) {
+        if (!showAll && lang !== "all" && detectLang(`${t.title} ${t.description ?? ""}`) !== lang) {
           return false;
         }
         // Excluir palavras (separadas por vírgula)
@@ -931,12 +942,29 @@ export function TrendsClient({
   }
 
   // Corte por desempenho (mantém só os melhores).
-  if (platform !== "saved" && minPerf !== "all" && filtered.length > 3) {
+  if (!showAll && platform !== "saved" && minPerf !== "all" && filtered.length > 3) {
     const keep = Math.ceil(filtered.length * (minPerf === "high" ? 0.3 : 0.6));
     filtered = filtered.slice(0, keep);
   }
 
   const ranked = filtered;
+
+  // Quantas tendências existem nesta aba ANTES dos filtros de qualidade/idioma/nicho.
+  const rawForPlatform = comingSoon
+    ? []
+    : trends.filter((t) =>
+        platform === "saved"
+          ? t.source === "manual"
+          : platform === "all"
+          ? true
+          : t.platform === platform
+      );
+  const hiddenByFilters = !showAll && filtered.length === 0 && rawForPlatform.length > 0;
+  const lastSync = rawForPlatform
+    .map((t) => t.created_at)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
 
   return (
     <div className="space-y-5">
@@ -1095,6 +1123,9 @@ export function TrendsClient({
           <p className="text-[11px] text-muted-foreground">
             Tendências do {activeTab?.label} são coletadas via Apify (consome crédito).
             Use com moderação.
+            {lastSync && (
+              <> · Última busca em {new Date(lastSync).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" })}</>
+            )}
           </p>
           <Button
             size="sm"
@@ -1137,15 +1168,32 @@ export function TrendsClient({
           <p className="text-xs text-muted-foreground/60 mt-1">
             {trends.length === 0
               ? 'Clique em atualizar (↻) para buscar tendências do mercado, ou adicione suas próprias referências.'
+              : hiddenByFilters
+              ? `Há ${rawForPlatform.length} tendência(s), mas os filtros de qualidade/idioma/nicho esconderam todas.`
               : "Tente outro filtro ou busca."}
           </p>
+          {hiddenByFilters && (
+            <Button size="sm" variant="outline" className="mt-3" onClick={() => setShowAll(true)}>
+              Mostrar todas mesmo assim
+            </Button>
+          )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {ranked.map((trend) => (
-            <TrendCard key={trend.id} trend={trend} currentUserId={currentUserId} />
-          ))}
-        </div>
+        <>
+          {showAll && (
+            <div className="mb-3 flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3.5 py-2 text-[11px] text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/20">
+              <span>Mostrando tudo, sem os filtros de qualidade/idioma/nicho (inclui posts de marco).</span>
+              <button onClick={() => setShowAll(false)} className="font-medium underline shrink-0">
+                Voltar aos filtros
+              </button>
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {ranked.map((trend) => (
+              <TrendCard key={trend.id} trend={trend} currentUserId={currentUserId} />
+            ))}
+          </div>
+        </>
       )}
       </>
       )}

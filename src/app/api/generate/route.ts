@@ -61,7 +61,19 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const parseResult = generationInputSchema.safeParse(body);
         if (!parseResult.success) {
-          send("error", { message: "Dados inválidos.", issues: parseResult.error.issues });
+          const first = parseResult.error.issues[0];
+          const fieldLabel: Record<string, string> = {
+            topic: "Tópico",
+            brandId: "Marca",
+            slideCount: "Nº de slides",
+            objective: "Objetivo",
+            format: "Formato",
+          };
+          const field = fieldLabel[String(first?.path?.[0] ?? "")] ?? String(first?.path?.[0] ?? "campo");
+          const detail = first
+            ? `${field}: ${first.message}`
+            : "Dados inválidos.";
+          send("error", { message: detail, issues: parseResult.error.issues });
           controller.close();
           return;
         }
