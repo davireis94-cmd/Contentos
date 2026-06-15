@@ -16,31 +16,49 @@ export default async function ContentPiecePage({
 
   const { pieceId } = await params;
 
-  const { data: piece } = await supabase
+  const { data: piece, error: pieceError } = await supabase
     .from("content_pieces")
-    .select("id, title, format, status, slides, caption, hashtags, created_at, brands(name, identity)")
+    .select("id, title, format, status, slides, caption, hashtags, created_at, brand_id, brands(name, identity)")
     .eq("id", pieceId)
     .eq("workspace_id", workspace.id)
-    .single();
+    .maybeSingle();
 
+  if (pieceError) {
+    return (
+      <div className="p-6">
+        <PageHeader title="Erro ao carregar" />
+        <p className="mt-4 text-sm text-destructive">Não foi possível carregar este conteúdo.</p>
+        <pre className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap">{pieceError.message}</pre>
+      </div>
+    );
+  }
   if (!piece) notFound();
 
   const slides = Array.isArray(piece.slides) ? piece.slides : [];
   const brandObj = Array.isArray(piece.brands) ? piece.brands[0] : piece.brands;
   const brandName = (brandObj as { name: string } | null)?.name ?? null;
-  const brandIdentity = ((brandObj as { identity?: { colors?: { hex: string; role?: string }[]; font_heading?: string; font_body?: string } } | null)?.identity ?? {});
-  const brandColors = brandIdentity.colors ?? [];
+  const brandIdentity = ((brandObj as { identity?: { colors?: { hex: string; role?: string }[]; font_heading?: string; font_body?: string } } | null)?.identity ?? {}) as {
+    colors?: { hex: string; role?: string }[];
+    font_heading?: string;
+    font_body?: string;
+  };
+  const brandColors = Array.isArray(brandIdentity.colors) ? brandIdentity.colors : [];
   const brandFontHeading = brandIdentity.font_heading ?? null;
   const brandFontBody = brandIdentity.font_body ?? null;
 
-  // Handle do Instagram conectado (para o rodapé dos slides)
-  const { data: conn } = await supabase
-    .from("social_connections")
-    .select("username")
-    .eq("workspace_id", workspace.id)
-    .eq("platform", "instagram")
-    .maybeSingle();
-  const brandHandle = conn?.username ?? null;
+  // Handle do Instagram conectado (para o rodapé dos slides) — não derruba a página se falhar
+  let brandHandle: string | null = null;
+  try {
+    const { data: conn } = await supabase
+      .from("social_connections")
+      .select("username")
+      .eq("workspace_id", workspace.id)
+      .eq("platform", "instagram")
+      .maybeSingle();
+    brandHandle = conn?.username ?? null;
+  } catch {
+    brandHandle = null;
+  }
 
   if (slides.length === 0) {
     return (

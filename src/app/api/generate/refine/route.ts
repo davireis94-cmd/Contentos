@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { anthropic } from "@/lib/ai/anthropic";
 import { generationOutputSchema } from "@/lib/validations/generation";
+import { extractJson } from "@/lib/ai/json";
 import { trackUsage } from "@/lib/billing/track";
 
 const REFINE_MODEL = "claude-sonnet-4-6";
@@ -80,14 +81,6 @@ INSTRUÇÕES:
 FORMATO DE SAÍDA (retorne EXATAMENTE esta estrutura, sem markdown, sem texto antes ou depois):
 {"title":"...","format":"...","platform":"...","productionTool":"","slides":[{"index":0,"title":"...","subtitle":"...","body":"...[Layout: tipo]","cta":"..."}],"caption":"...","hashtags":["#..."]}`;
 
-  // Extract JSON from model response, handling both raw and markdown-wrapped JSON
-  function extractJson(text: string): string | null {
-    const codeBlock = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-    if (codeBlock) return codeBlock[1];
-    const raw = text.match(/\{[\s\S]*\}/);
-    return raw ? raw[0] : null;
-  }
-
   try {
     const messages: { role: "user" | "assistant"; content: string }[] = [
       ...(history ?? []),
@@ -113,12 +106,13 @@ FORMATO DE SAÍDA (retorne EXATAMENTE esta estrutura, sem markdown, sem texto an
     });
 
     const text = response.content[0].type === "text" ? response.content[0].text : "";
-    const jsonStr = extractJson(text);
-    if (!jsonStr) {
-      console.error("[refine] No JSON in response. Raw text:", text.slice(0, 500));
+    let rawObj: Record<string, unknown>;
+    try {
+      rawObj = extractJson<Record<string, unknown>>(text);
+    } catch {
+      console.error("[refine] No/invalid JSON in response. Raw text:", text.slice(0, 500));
       return NextResponse.json({ error: "A IA não retornou o conteúdo no formato esperado. Tente reformular o pedido." }, { status: 500 });
     }
-    const rawObj = JSON.parse(jsonStr);
     rawObj.format = piece.format;
     // Normalize platform to valid enum value
     const validPlatforms = ["instagram", "tiktok", "youtube", "linkedin", "x"];

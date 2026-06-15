@@ -195,6 +195,32 @@ export function StreamOutput({ state }: Props) {
     setTimeout(() => setAllCopied(false), 2000);
   }
 
+  async function applyCritiqueFixes() {
+    if (state.status !== "done" || !critique || refining) return;
+    const instruction =
+      "Aplique estas correções ao conteúdo, mantendo a voz da marca e a estrutura. Reescreva o que for necessário:\n" +
+      critique.issues.map((i) => `- [${i.where}] ${i.problem} → ${i.fix}`).join("\n");
+    setRefining(true);
+    setRefineError(null);
+    setChatMessages((m) => [...m, { role: "user", content: "Aplicar as correções da crítica ✦" }]);
+    try {
+      const res = await fetch("/api/generate/refine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pieceId: state.pieceId, message: instruction, history: [] }),
+      });
+      const data = await res.json() as { output?: GenerationOutput; error?: string };
+      if (!res.ok || !data.output) throw new Error(data.error ?? "Erro ao aplicar");
+      setLocalOutput(data.output);
+      setCritique(null);
+      setChatMessages((m) => [...m, { role: "assistant", content: "Correções aplicadas! Veja os slides acima." }]);
+    } catch (err) {
+      setRefineError(err instanceof Error ? err.message : "Erro ao aplicar correções");
+    } finally {
+      setRefining(false);
+    }
+  }
+
   async function handleCritique() {
     if (critiquing) return;
     setCritiquing(true);
@@ -338,8 +364,23 @@ export function StreamOutput({ state }: Props) {
               </div>
             )}
 
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button size="sm" onClick={() => void applyCritiqueFixes()} disabled={refining}>
+                {refining ? (
+                  <><Loader2 className="mr-1.5 size-3.5 animate-spin" /> Aplicando…</>
+                ) : (
+                  <><Wand2 className="mr-1.5 size-3.5" /> Aplicar correções</>
+                )}
+              </Button>
+              <button
+                onClick={() => setCritique(null)}
+                className="text-[11px] text-muted-foreground hover:text-foreground"
+              >
+                Dispensar
+              </button>
+            </div>
             <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-              <AlertTriangle className="size-3" /> Use o chat abaixo (&quot;Refinar com IA&quot;) pra aplicar as correções.
+              <AlertTriangle className="size-3" /> A IA aplica as correções automaticamente — ou ajuste manual no &quot;Refinar com IA&quot; abaixo.
             </p>
           </CardContent>
         </Card>
