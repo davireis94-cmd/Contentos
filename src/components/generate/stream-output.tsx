@@ -17,6 +17,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import type { CriticResult } from "@/lib/skills/content-critic";
+import type { RepurposeVariant } from "@/lib/skills/repurpose";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -108,6 +109,8 @@ export function StreamOutput({ state }: Props) {
   const [humanized, setHumanized] = useState(false);
   const [critiquing, setCritiquing] = useState(false);
   const [critique, setCritique] = useState<CriticResult | null>(null);
+  const [repurposing, setRepurposing] = useState(false);
+  const [variants, setVariants] = useState<RepurposeVariant[] | null>(null);
 
   useEffect(() => {
     if (state.status === "done" && lastPieceIdRef.current !== state.pieceId) {
@@ -117,6 +120,7 @@ export function StreamOutput({ state }: Props) {
       setRefineError(null);
       setChatInput("");
       setCritique(null);
+      setVariants(null);
     }
   }, [state]);
 
@@ -221,6 +225,25 @@ export function StreamOutput({ state }: Props) {
     }
   }
 
+  async function handleRepurpose() {
+    if (repurposing || state.status !== "done") return;
+    setRepurposing(true);
+    try {
+      const res = await fetch("/api/repurpose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pieceId: state.pieceId }),
+      });
+      const data = await res.json() as { variants?: RepurposeVariant[]; error?: string };
+      if (!res.ok || !data.variants) throw new Error(data.error ?? "Erro");
+      setVariants(data.variants);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setRepurposing(false);
+    }
+  }
+
   async function handleCritique() {
     if (critiquing) return;
     setCritiquing(true);
@@ -282,6 +305,18 @@ export function StreamOutput({ state }: Props) {
               <><Loader2 className="size-3.5 animate-spin" /> Avaliando…</>
             ) : (
               <><Gavel className="size-3.5" /> Criticar</>
+            )}
+          </button>
+          <button
+            onClick={() => void handleRepurpose()}
+            disabled={repurposing}
+            className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent text-muted-foreground hover:text-foreground"
+            title="Adapta este post para Reels, thread, stories, newsletter…"
+          >
+            {repurposing ? (
+              <><Loader2 className="size-3.5 animate-spin" /> Adaptando…</>
+            ) : (
+              <><Copy className="size-3.5" /> Reaproveitar</>
             )}
           </button>
           <button
@@ -382,6 +417,33 @@ export function StreamOutput({ state }: Props) {
             <p className="text-[11px] text-muted-foreground flex items-center gap-1">
               <AlertTriangle className="size-3" /> A IA aplica as correções automaticamente — ou ajuste manual no &quot;Refinar com IA&quot; abaixo.
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Variantes reaproveitadas */}
+      {variants && variants.length > 0 && (
+        <Card className="border-primary/30 bg-primary/[0.03]">
+          <CardContent className="py-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                <Copy className="size-3.5" /> Reaproveitado em {variants.length} formatos
+              </p>
+              <button onClick={() => setVariants(null)} className="text-[11px] text-muted-foreground hover:text-foreground">
+                Fechar
+              </button>
+            </div>
+            <div className="space-y-2">
+              {variants.map((v) => (
+                <div key={v.id} className="rounded-lg border bg-card">
+                  <div className="flex items-center justify-between px-3 py-2 border-b">
+                    <span className="text-xs font-semibold">{v.label}</span>
+                    <CopyButton text={v.content} label="Copiar" />
+                  </div>
+                  <p className="px-3 py-2.5 text-sm whitespace-pre-wrap leading-relaxed">{v.content}</p>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
