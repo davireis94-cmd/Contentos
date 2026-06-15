@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   if (!body.handles?.length) return NextResponse.json({ error: "handles obrigatório" }, { status: 400 });
 
   try {
-    const posts = await fetchInstagramProfiles(body.handles, 9);
+    const posts = await fetchInstagramProfiles(body.handles, 6);
     // Extract hashtags from captions for trend feeding
     const hashtagSet = new Set<string>();
     for (const post of posts) {
@@ -23,6 +23,10 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ posts, hashtags: Array.from(hashtagSet).slice(0, 20) });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Erro Apify" }, { status: 502 });
+    const raw = e instanceof Error ? e.message : "Erro Apify";
+    const friendly = /timed?-?out/i.test(raw)
+      ? "O Instagram demorou demais pra responder (timeout). Tente de novo em alguns segundos — costuma funcionar na 2ª tentativa."
+      : raw;
+    return NextResponse.json({ error: friendly }, { status: 502 });
   }
 }

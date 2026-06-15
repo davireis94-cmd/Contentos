@@ -33,7 +33,7 @@ export default async function BrandDetailPage({
     { data: voice },
     { data: examples },
     { data: documents },
-    { count: referencesCount },
+    { data: references },
   ] = await Promise.all([
     supabase.from("brands").select("*").eq("id", brandId).maybeSingle(),
     supabase.from("brand_voice").select("*").eq("brand_id", brandId).maybeSingle(),
@@ -49,9 +49,11 @@ export default async function BrandDetailPage({
       .order("created_at", { ascending: false }),
     supabase
       .from("brand_references")
-      .select("id", { count: "exact", head: true })
+      .select("id, name, handle")
       .eq("brand_id", brandId),
   ]);
+
+  const referencesCount = references?.length ?? 0;
 
   if (!brand) notFound();
 
@@ -127,7 +129,7 @@ export default async function BrandDetailPage({
             <SuggestionsTab
               brandId={brand.id}
               brandName={brand.name}
-              references={[]}
+              references={(references ?? []).map((r) => ({ name: r.name, handle: r.handle }))}
             />
           </TabsContent>
         </Tabs>

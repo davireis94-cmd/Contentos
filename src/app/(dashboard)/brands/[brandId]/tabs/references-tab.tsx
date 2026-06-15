@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ExternalLink, Loader2, Sparkles, Trash2, Wand2, Play, Layers, Heart, MessageCircle, Eye, RefreshCw, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -231,11 +231,29 @@ function ReferenceCard({ reference, brandId, voice }: { reference: Reference; br
     try { return JSON.parse(reference.ai_analysis); } catch { return null; }
   });
   const [posts, setPosts] = useState<RefPost[] | null>(null);
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [postsError, setPostsError] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   const handle = reference.handle?.replace(/^@/, "");
+  const cacheKey = `ref_posts_${reference.id}`;
+
+  // Restaura posts salvos da última busca — evita refazer a chamada paga ao Apify.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { posts: RefPost[]; fetchedAt: string };
+        if (Array.isArray(parsed.posts)) {
+          setPosts(parsed.posts);
+          setFetchedAt(parsed.fetchedAt ?? null);
+        }
+      }
+    } catch {
+      /* cache corrompido — ignora */
+    }
+  }, [cacheKey]);
 
   async function loadPosts() {
     if (!handle) return;
@@ -249,7 +267,15 @@ function ReferenceCard({ reference, brandId, voice }: { reference: Reference; br
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Erro ao buscar posts");
-      setPosts(json.posts ?? []);
+      const fresh = (json.posts ?? []) as RefPost[];
+      setPosts(fresh);
+      const now = new Date().toISOString();
+      setFetchedAt(now);
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify({ posts: fresh, fetchedAt: now }));
+      } catch {
+        /* quota cheia — segue sem cache */
+      }
     } catch (e) {
       setPostsError(e instanceof Error ? e.message : "Erro");
     } finally {
@@ -325,7 +351,7 @@ function ReferenceCard({ reference, brandId, voice }: { reference: Reference; br
         {handle && (
           <div className="flex gap-1 border-b">
             <button
-              onClick={() => { setTab("posts"); if (!posts && !loadingPosts) loadPosts(); }}
+              onClick={() => setTab("posts")}
               className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${tab === "posts" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
             >
               Melhores posts
@@ -366,9 +392,16 @@ function ReferenceCard({ reference, brandId, voice }: { reference: Reference; br
                 <div className="grid grid-cols-3 gap-1.5">
                   {posts.map((p) => <PostCard key={p.externalId} post={p} />)}
                 </div>
-                <Button size="sm" variant="ghost" onClick={loadPosts} disabled={loadingPosts} className="mt-2 h-7 px-2 text-[11px] text-muted-foreground w-full">
-                  <RefreshCw className="size-3 mr-1" /> Atualizar
-                </Button>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  {fetchedAt ? (
+                    <span className="text-[10px] text-muted-foreground">
+                      Buscado em {new Date(fetchedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                    </span>
+                  ) : <span />}
+                  <Button size="sm" variant="ghost" onClick={loadPosts} disabled={loadingPosts} className="h-7 px-2 text-[11px] text-muted-foreground">
+                    <RefreshCw className="size-3 mr-1" /> Atualizar (gasta crédito)
+                  </Button>
+                </div>
               </>
             )}
           </div>

@@ -82,12 +82,18 @@ export async function fetchInstagramProfiles(
   const clean = handles.map((h) => h.replace(/^@/, "").trim()).filter(Boolean).slice(0, 4);
   if (clean.length === 0) return [];
 
-  const items = await runActor<IgItem>(PROFILE_ACTOR, {
-    directUrls: clean.map((h) => `https://www.instagram.com/${h}/`),
-    resultsType: "posts",
-    resultsLimit: perProfile,
-    addParentData: false,
-  });
+  // Timeout maior (o instagram-scraper é lento no cold start) e payload enxuto
+  // para reduzir a chance de TIMED-OUT no run síncrono.
+  const items = await runActor<IgItem>(
+    PROFILE_ACTOR,
+    {
+      directUrls: clean.map((h) => `https://www.instagram.com/${h}/`),
+      resultsType: "posts",
+      resultsLimit: perProfile,
+      addParentData: false,
+    },
+    75
+  );
 
   const results: FetchedTrend[] = [];
   for (const it of items) {
