@@ -203,8 +203,10 @@ function SlideVisual({
     ) : null;
 
   // ── imagem contida (card-top / framed / half) — geometria compartilhada ──
-  const imgMode = effectiveImageMode(body, !!slide.imageUrl);
-  if (slide.imageUrl && (imgMode === "card-top" || imgMode === "framed" || imgMode === "half")) {
+  // Usa o token bruto: assim o layout (com placeholder) aparece ANTES de gerar a
+  // imagem, mostrando na hora onde a imagem vai entrar.
+  const imgMode = getImageMode(body);
+  if (imgMode === "card-top" || imgMode === "framed" || imgMode === "half") {
     const G = computeImageLayout(imgMode, PREVIEW_W, PREVIEW_H);
     const img = G.image!;
     const segs = parseTitleHighlight(slide.title);
@@ -219,12 +221,28 @@ function SlideVisual({
             height: img.h,
             borderRadius: img.radius,
             overflow: "hidden",
-            border: img.border ? `${img.border}px solid ${B.lightBorder}` : "none",
+            border: slide.imageUrl
+              ? (img.border ? `${img.border}px solid ${B.lightBorder}` : "none")
+              : `1px dashed rgba(0,0,0,0.18)`,
             background: B.lightBorder,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={slide.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          {slide.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={slide.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, color: "rgba(0,0,0,0.35)" }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="9" cy="9" r="2" />
+                <path d="m21 15-3.5-3.5L9 20" />
+              </svg>
+              <span style={{ fontSize: 7, fontWeight: 600, letterSpacing: 0.5 }}>imagem aqui</span>
+            </div>
+          )}
         </div>
         <div
           style={{
@@ -943,13 +961,12 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
 
   function applyImageMode(mode: ImageMode) {
     setDesiredMode(mode);
-    // Se o slide tem imagem, troca o token na hora (preview reflete imediatamente).
-    if (currentSlide.imageUrl) {
-      const next = slides.map((s) =>
-        s.index === currentSlide.index ? { ...s, body: setImageModeToken(s.body ?? "", mode) } : s
-      );
-      persist(next);
-    }
+    // Grava o token sempre — assim o layout (com placeholder) aparece na hora,
+    // mesmo antes de gerar/subir a imagem.
+    const next = slides.map((s) =>
+      s.index === currentSlide.index ? { ...s, body: setImageModeToken(s.body ?? "", mode) } : s
+    );
+    persist(next);
   }
 
   const IMG_MODE_KEYS: ImageMode[] = ["card-top", "framed", "half", "bg"];
@@ -1358,9 +1375,13 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
                   <p className="text-[10px] text-muted-foreground/70 mb-1.5">Como a imagem aparece</p>
                   <div className="flex flex-wrap gap-1.5">
                     {IMG_MODE_KEYS.map((m) => {
-                      const activeMode = currentSlide.imageUrl
-                        ? effectiveImageMode(currentSlide.body, true)
-                        : desiredMode;
+                      const tokenMode = getImageMode(currentSlide.body);
+                      const activeMode =
+                        tokenMode !== "none"
+                          ? tokenMode
+                          : currentSlide.imageUrl
+                            ? "bg"
+                            : desiredMode;
                       return (
                         <button
                           key={m}
