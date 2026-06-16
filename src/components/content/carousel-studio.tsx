@@ -2,6 +2,21 @@
 
 import { useState, useTransition } from "react";
 import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
   ChevronLeft,
   ChevronRight,
   Check,
@@ -97,6 +112,49 @@ function setLayoutToken(body: string, layout: string): string {
 /** Reatribui index sequencial após adicionar/remover/mover slides. */
 function reindex(slides: Slide[]): Slide[] {
   return slides.map((s, i) => ({ ...s, index: i }));
+}
+
+// ── Miniatura arrastável (drag-and-drop na tira de slides) ──────────────────
+
+function SortableThumbnail({
+  slide,
+  idx,
+  total,
+  isCurrent,
+  B,
+  onClick,
+}: {
+  slide: Slide;
+  idx: number;
+  total: number;
+  isCurrent: boolean;
+  B: BrandTokens;
+  onClick: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: slide.index });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    cursor: isDragging ? "grabbing" : "grab",
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <button
+        onClick={onClick}
+        className={`shrink-0 rounded overflow-hidden border-2 transition-colors ${
+          isCurrent ? "border-primary" : "border-transparent hover:border-border"
+        }`}
+        style={{ width: 44, height: 55, display: "block" }}
+        title={`Slide ${idx + 1}: ${slide.title}`}
+      >
+        <SlideVisual slide={slide} idx={idx} total={total} B={B} />
+      </button>
+    </div>
+  );
 }
 
 // ── Móvel: etiqueta + contador (aparece em todos os slides quando há tema) ──
@@ -1173,6 +1231,22 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
 
   const layout = getLayout(currentSlide.body ?? "");
 
+  // DnD sensors — requer mover 8px antes de ativar (evita conflito com o clique)
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = slides.findIndex((s) => s.index === active.id);
+    const newIdx = slides.findIndex((s) => s.index === over.id);
+    if (oldIdx === -1 || newIdx === -1) return;
+    const next = reindex(arrayMove(slides, oldIdx, newIdx));
+    persist(next);
+    setCurrent(newIdx);
+  }
+
   return (
     <div className="rounded-xl border bg-card overflow-hidden">
       {/* Header */}
@@ -1391,22 +1465,24 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
             ))}
           </div>
 
-          {/* Thumbnail strip */}
-          <div className="flex gap-2 overflow-x-auto w-full pb-1">
-            {slides.map((s, i) => (
-              <button
-                key={i}
-                onClick={() => goTo(i)}
-                className={`shrink-0 rounded overflow-hidden border-2 transition-colors ${
-                  i === current ? "border-primary" : "border-transparent hover:border-border"
-                }`}
-                style={{ width: 44, height: 55 }}
-                title={`Slide ${i + 1}: ${s.title}`}
-              >
-                <SlideVisual slide={s} idx={i} total={slides.length} B={B} />
-              </button>
-            ))}
-          </div>
+          {/* Thumbnail strip — arrastar para reordenar */}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={slides.map((s) => s.index)} strategy={horizontalListSortingStrategy}>
+              <div className="flex gap-2 overflow-x-auto w-full pb-1">
+                {slides.map((s, i) => (
+                  <SortableThumbnail
+                    key={s.index}
+                    slide={s}
+                    idx={i}
+                    total={slides.length}
+                    isCurrent={i === current}
+                    B={B}
+                    onClick={() => goTo(i)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         </div>
 
         {/* ── Editor panel ── */}
