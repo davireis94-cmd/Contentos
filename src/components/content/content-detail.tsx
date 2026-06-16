@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -441,7 +442,7 @@ export function ContentDetail({
   ].join("\n");
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-6xl">
+    <div className="flex flex-col gap-4 p-6 max-w-6xl">
       {/* Breadcrumb */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
@@ -522,331 +523,343 @@ export function ContentDetail({
             </Button>
           )}
           <p className="w-full text-[11px] text-muted-foreground">
-            O post agendado aparece no Calendário. (A publicação automática nas redes depende da conexão no “Publicar”.)
+            O post agendado aparece no Calendário. (A publicação automática nas redes depende da conexão no "Publicar".)
           </p>
         </div>
       )}
 
-      {/* Ferramentas de IA */}
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          onClick={() => void handleCritique()}
-          disabled={critiquing}
-          className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent text-muted-foreground hover:text-foreground"
-          title="Crítica honesta do post (gancho, retenção, CTA, cara de IA)"
-        >
-          {critiquing ? <><Loader2 className="size-3.5 animate-spin" /> Avaliando…</> : <><Gavel className="size-3.5" /> Criticar</>}
-        </button>
-        <button
-          onClick={() => void handleHumanize()}
-          disabled={humanizing}
-          className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
-            humanizedOk ? "border-purple-300 bg-purple-50 text-purple-700" : "hover:bg-accent text-muted-foreground hover:text-foreground"
-          }`}
-          title="Reescreve para soar humano, sem clichê de IA"
-        >
-          {humanizing ? <><Loader2 className="size-3.5 animate-spin" /> Humanizando…</> : humanizedOk ? <><Check className="size-3.5" /> Humanizado</> : <><Sparkles className="size-3.5" /> Humanizar</>}
-        </button>
-        <button
-          onClick={() => void handleFactCheck()}
-          disabled={factChecking}
-          className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent text-muted-foreground hover:text-foreground"
-          title="Checa os fatos do post com busca na web"
-        >
-          {factChecking ? <><Loader2 className="size-3.5 animate-spin" /> Checando…</> : <><ShieldCheck className="size-3.5" /> Checar fatos</>}
-        </button>
-        <button
-          onClick={() => void handleRepurpose()}
-          disabled={repurposing}
-          className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent text-muted-foreground hover:text-foreground"
-          title="Adapta este post para Reels, thread, stories, newsletter…"
-        >
-          {repurposing ? <><Loader2 className="size-3.5 animate-spin" /> Adaptando…</> : <><Copy className="size-3.5" /> Reaproveitar</>}
-        </button>
-      </div>
+      {/* ── Abas principais ── */}
+      <Tabs defaultValue={format === "carousel" ? "studio" : "texto"} className="w-full">
+        <TabsList className="mb-2">
+          {format === "carousel" && <TabsTrigger value="studio">Studio</TabsTrigger>}
+          <TabsTrigger value="texto">Texto</TabsTrigger>
+          <TabsTrigger value="ia">IA</TabsTrigger>
+        </TabsList>
 
-      {/* Crítica */}
-      {critique && (
-        <Card className="border-amber-200/60 bg-amber-50/30">
-          <CardContent className="py-4 space-y-3">
-            <div className="flex items-center gap-3">
-              <div className={`flex items-center justify-center size-11 rounded-full text-sm font-bold shrink-0 ${
-                critique.score >= 75 ? "bg-emerald-100 text-emerald-700" : critique.score >= 50 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
-              }`}>
-                {critique.score}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-                  <Gavel className="size-3.5" /> Crítica honesta
-                </p>
-                <p className="text-sm mt-0.5">{critique.verdict}</p>
-              </div>
-            </div>
-            {critique.issues.length > 0 && (
-              <div className="space-y-1.5">
-                {critique.issues.map((iss, i) => (
-                  <div key={i} className="rounded-lg border bg-card px-3 py-2 text-sm">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                        iss.severity === "alta" ? "bg-red-100 text-red-700" : iss.severity === "média" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"
-                      }`}>{iss.severity}</span>
-                      <span className="text-xs font-medium text-muted-foreground">{iss.where}</span>
-                    </div>
-                    <p className="text-xs">{iss.problem}</p>
-                    <p className="text-xs mt-1 flex gap-1.5"><span className="text-emerald-600 shrink-0">→ corrigir:</span>{iss.fix}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-            {critique.strengths.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {critique.strengths.map((s, i) => (
-                  <span key={i} className="text-[11px] rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5">✓ {s}</span>
-                ))}
-              </div>
-            )}
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button size="sm" onClick={() => void applyCritiqueFixes()} disabled={refining}>
-                {refining ? <><Loader2 className="mr-1.5 size-3.5 animate-spin" /> Aplicando…</> : <><Wand2 className="mr-1.5 size-3.5" /> Aplicar correções</>}
-              </Button>
-              <button onClick={() => setCritique(null)} className="text-[11px] text-muted-foreground hover:text-foreground">Dispensar</button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Checagem de fatos */}
-      {factCheck && (
-        <Card className="border-sky-200/60 bg-sky-50/30">
-          <CardContent className="py-4 space-y-3">
-            <div className="flex items-center gap-3">
-              <div className={`flex items-center justify-center size-11 rounded-full shrink-0 ${
-                factCheck.riskLevel === "baixo" ? "bg-emerald-100 text-emerald-700" : factCheck.riskLevel === "médio" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
-              }`}>
-                <ShieldCheck className="size-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Checagem de fatos · risco {factCheck.riskLevel}</p>
-                <p className="text-sm mt-0.5">{factCheck.verdict}</p>
-              </div>
-            </div>
-            {factCheck.claims.length > 0 ? (
-              <div className="space-y-1.5">
-                {factCheck.claims.map((c, i) => {
-                  const tone = c.verdict === "confirmado" ? "bg-emerald-100 text-emerald-700" : c.verdict === "falso" ? "bg-red-100 text-red-700" : c.verdict === "duvidoso" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600";
-                  return (
-                    <div key={i} className="rounded-lg border bg-card px-3 py-2 text-sm">
-                      <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${tone}`}>{c.verdict.replace("_", " ")}</span>
-                      <p className="text-xs mt-1">{c.claim}</p>
-                      <p className="text-[11px] text-muted-foreground mt-1">{c.explanation}</p>
-                      {c.correction && <p className="text-xs mt-1 flex gap-1.5"><span className="text-emerald-600 shrink-0">→ corrigir:</span>{c.correction}</p>}
-                      {c.source && <p className="text-[10px] text-muted-foreground mt-1 truncate">Fonte: {c.source}</p>}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">Nenhuma afirmação factual de risco encontrada.</p>
-            )}
-            <button onClick={() => setFactCheck(null)} className="text-[11px] text-muted-foreground hover:text-foreground">Dispensar</button>
-            <p className="text-[11px] text-muted-foreground flex items-center gap-1"><AlertTriangle className="size-3" /> Confira fontes importantes antes de publicar dado sensível.</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Variantes reaproveitadas */}
-      {variants && variants.length > 0 && (
-        <Card className="border-primary/30 bg-primary/[0.03]">
-          <CardContent className="py-4 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5"><Copy className="size-3.5" /> Reaproveitado</p>
-            {variants.map((v, i) => (
-              <div key={i} className="rounded-lg border bg-card p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-semibold text-primary">{v.label}</span>
-                  <CopyButton text={v.content} />
-                </div>
-                <p className="text-xs whitespace-pre-wrap text-muted-foreground">{v.content}</p>
-              </div>
-            ))}
-            <button onClick={() => setVariants(null)} className="text-[11px] text-muted-foreground hover:text-foreground">Dispensar</button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Slides */}
-      <section>
-        <div className="mb-2 flex items-center justify-between">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Roteiro · {slides.length} slides
-          </p>
-          <CopyButton text={fullCopy} label="Copiar tudo" icon={<ClipboardCopy className="size-3" />} />
-        </div>
-        <div className="space-y-2">
-          {slides.map((slide, i) => (
-            <SlideCard
-              key={slide.index}
-              slide={slide}
-              isHook={i === 0}
-              onSave={handleSaveSlide}
+        {/* ── Aba Studio ── */}
+        {format === "carousel" && (
+          <TabsContent value="studio" className="mt-0">
+            <CarouselStudio
+              slides={slides}
+              pieceId={pieceId}
+              brandColors={brandColors}
+              brandHandle={brandHandle}
+              brandFontHeading={brandFontHeading}
+              brandFontBody={brandFontBody}
+              onSlidesChange={(next) => setSlides(next)}
             />
-          ))}
-        </div>
-      </section>
+          </TabsContent>
+        )}
 
-      {/* Caption */}
-      <section>
-        <div className="mb-2 flex items-center justify-between">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Legenda
-          </p>
-          <div className="flex items-center gap-1">
-            <CopyButton text={caption} />
-            {!editingCaption && (
-              <button
-                onClick={() => { setCaptionDraft(caption); setEditingCaption(true); }}
-                className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent"
-                title="Editar legenda"
-              >
-                <Pencil className="size-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
-        <Card>
-          <CardContent className="py-4">
-            {editingCaption ? (
-              <div className="space-y-2">
-                <Textarea
-                  value={captionDraft}
-                  onChange={(e) => setCaptionDraft(e.target.value)}
-                  rows={6}
-                  className="text-sm"
+        {/* ── Aba Texto ── */}
+        <TabsContent value="texto" className="mt-0 flex flex-col gap-6">
+          {/* Roteiro */}
+          <section>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Roteiro · {slides.length} slides
+              </p>
+              <CopyButton text={fullCopy} label="Copiar tudo" icon={<ClipboardCopy className="size-3" />} />
+            </div>
+            <div className="space-y-2">
+              {slides.map((slide, i) => (
+                <SlideCard
+                  key={slide.index}
+                  slide={slide}
+                  isHook={i === 0}
+                  onSave={handleSaveSlide}
                 />
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={handleSaveCaption}>Salvar</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setEditingCaption(false)}>
-                    <X className="size-3.5" />
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <p className="whitespace-pre-wrap text-sm">{caption}</p>
-            )}
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Hashtags */}
-      <section>
-        <div className="mb-2 flex items-center justify-between">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Hashtags · {output.hashtags.length}
-          </p>
-          <CopyButton text={allHashtags} />
-        </div>
-        <Card>
-          <CardContent className="py-3">
-            <div className="flex flex-wrap gap-1.5">
-              {output.hashtags.map((tag) => (
-                <Badge key={tag} variant="outline" className="text-xs font-normal">
-                  {tag.startsWith("#") ? tag : `#${tag}`}
-                </Badge>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      </section>
+          </section>
 
-      {/* Chat refinement */}
-      <section>
-        <div className="rounded-lg border bg-card">
-          <div className="flex items-center gap-2 border-b px-4 py-3">
-            <Wand2 className="size-3.5 text-muted-foreground" />
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-              Refinar com IA
-            </p>
-          </div>
-
-          {chatMessages.length > 0 && (
-            <div className="max-h-64 overflow-y-auto px-4 py-3 space-y-2">
-              {chatMessages.map((msg, i) => (
-                <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div
-                    className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground"
-                    }`}
+          {/* Legenda */}
+          <section>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Legenda
+              </p>
+              <div className="flex items-center gap-1">
+                <CopyButton text={caption} />
+                {!editingCaption && (
+                  <button
+                    onClick={() => { setCaptionDraft(caption); setEditingCaption(true); }}
+                    className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent"
+                    title="Editar legenda"
                   >
-                    {msg.content}
+                    <Pencil className="size-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+            <Card>
+              <CardContent className="py-4">
+                {editingCaption ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      value={captionDraft}
+                      onChange={(e) => setCaptionDraft(e.target.value)}
+                      rows={6}
+                      className="text-sm"
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleSaveCaption}>Salvar</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditingCaption(false)}>
+                        <X className="size-3.5" />
+                      </Button>
+                    </div>
                   </div>
+                ) : (
+                  <p className="whitespace-pre-wrap text-sm">{caption}</p>
+                )}
+              </CardContent>
+            </Card>
+          </section>
+
+          {/* Hashtags */}
+          <section>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Hashtags · {output.hashtags.length}
+              </p>
+              <CopyButton text={allHashtags} />
+            </div>
+            <Card>
+              <CardContent className="py-3">
+                <div className="flex flex-wrap gap-1.5">
+                  {output.hashtags.map((tag) => (
+                    <Badge key={tag} variant="outline" className="text-xs font-normal">
+                      {tag.startsWith("#") ? tag : `#${tag}`}
+                    </Badge>
+                  ))}
                 </div>
-              ))}
-              {refining && (
-                <div className="flex justify-start">
-                  <div className="flex items-center gap-1.5 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
-                    <Loader2 className="size-3.5 animate-spin" />
-                    Refinando…
-                  </div>
+              </CardContent>
+            </Card>
+          </section>
+
+          {/* Chat refinamento */}
+          <section>
+            <div className="rounded-lg border bg-card">
+              <div className="flex items-center gap-2 border-b px-4 py-3">
+                <Wand2 className="size-3.5 text-muted-foreground" />
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Refinar com IA
+                </p>
+              </div>
+              {chatMessages.length > 0 && (
+                <div className="max-h-64 overflow-y-auto px-4 py-3 space-y-2">
+                  {chatMessages.map((msg, i) => (
+                    <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                      <div
+                        className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                          msg.role === "user"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-foreground"
+                        }`}
+                      >
+                        {msg.content}
+                      </div>
+                    </div>
+                  ))}
+                  {refining && (
+                    <div className="flex justify-start">
+                      <div className="flex items-center gap-1.5 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+                        <Loader2 className="size-3.5 animate-spin" />
+                        Refinando…
+                      </div>
+                    </div>
+                  )}
+                  <div ref={chatEndRef} />
                 </div>
               )}
-              <div ref={chatEndRef} />
+              {refineError && (
+                <div className="px-4 pb-2">
+                  <p className="text-xs text-destructive">{refineError}</p>
+                </div>
+              )}
+              <div className="flex gap-2 p-3">
+                <Textarea
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      void sendRefinement();
+                    }
+                  }}
+                  placeholder='Ex: "Reescreve o hook", "Deixa o tom mais leve", "Adiciona slide sobre preço"'
+                  rows={2}
+                  className="resize-none text-sm"
+                  disabled={refining}
+                />
+                <button
+                  type="button"
+                  onClick={() => void sendRefinement()}
+                  disabled={refining || !chatInput.trim()}
+                  className="flex shrink-0 self-end items-center justify-center rounded-md bg-primary px-3 py-2 text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {refining ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                </button>
+              </div>
             </div>
-          )}
+          </section>
+        </TabsContent>
 
-          {refineError && (
-            <div className="px-4 pb-2">
-              <p className="text-xs text-destructive">{refineError}</p>
-            </div>
-          )}
-
-          <div className="flex gap-2 p-3">
-            <Textarea
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  void sendRefinement();
-                }
-              }}
-              placeholder='Ex: "Reescreve o hook", "Deixa o tom mais leve", "Adiciona slide sobre preço"'
-              rows={2}
-              className="resize-none text-sm"
-              disabled={refining}
-            />
+        {/* ── Aba IA ── */}
+        <TabsContent value="ia" className="mt-0 flex flex-col gap-4">
+          {/* Botões de ferramentas */}
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              type="button"
-              onClick={() => void sendRefinement()}
-              disabled={refining || !chatInput.trim()}
-              className="flex shrink-0 self-end items-center justify-center rounded-md bg-primary px-3 py-2 text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              onClick={() => void handleCritique()}
+              disabled={critiquing}
+              className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent text-muted-foreground hover:text-foreground"
+              title="Crítica honesta do post (gancho, retenção, CTA, cara de IA)"
             >
-              {refining ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Send className="size-4" />
-              )}
+              {critiquing ? <><Loader2 className="size-3.5 animate-spin" /> Avaliando…</> : <><Gavel className="size-3.5" /> Criticar</>}
+            </button>
+            <button
+              onClick={() => void handleHumanize()}
+              disabled={humanizing}
+              className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+                humanizedOk ? "border-purple-300 bg-purple-50 text-purple-700" : "hover:bg-accent text-muted-foreground hover:text-foreground"
+              }`}
+              title="Reescreve para soar humano, sem clichê de IA"
+            >
+              {humanizing ? <><Loader2 className="size-3.5 animate-spin" /> Humanizando…</> : humanizedOk ? <><Check className="size-3.5" /> Humanizado</> : <><Sparkles className="size-3.5" /> Humanizar</>}
+            </button>
+            <button
+              onClick={() => void handleFactCheck()}
+              disabled={factChecking}
+              className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent text-muted-foreground hover:text-foreground"
+              title="Checa os fatos do post com busca na web"
+            >
+              {factChecking ? <><Loader2 className="size-3.5 animate-spin" /> Checando…</> : <><ShieldCheck className="size-3.5" /> Checar fatos</>}
+            </button>
+            <button
+              onClick={() => void handleRepurpose()}
+              disabled={repurposing}
+              className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent text-muted-foreground hover:text-foreground"
+              title="Adapta este post para Reels, thread, stories, newsletter…"
+            >
+              {repurposing ? <><Loader2 className="size-3.5 animate-spin" /> Adaptando…</> : <><Copy className="size-3.5" /> Reaproveitar</>}
             </button>
           </div>
-        </div>
-      </section>
 
-      {/* Carousel Studio — preview + editor for carousel format */}
-      {format === "carousel" && (
-        <section>
-          <CarouselStudio
-            slides={slides}
-            pieceId={pieceId}
-            brandColors={brandColors}
-            brandHandle={brandHandle}
-            brandFontHeading={brandFontHeading}
-            brandFontBody={brandFontBody}
-            onSlidesChange={(next) => {
-              setSlides(next);
-            }}
-          />
-        </section>
-      )}
+          {/* Crítica */}
+          {critique && (
+            <Card className="border-amber-200/60 bg-amber-50/30">
+              <CardContent className="py-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className={`flex items-center justify-center size-11 rounded-full text-sm font-bold shrink-0 ${
+                    critique.score >= 75 ? "bg-emerald-100 text-emerald-700" : critique.score >= 50 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+                  }`}>
+                    {critique.score}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                      <Gavel className="size-3.5" /> Crítica honesta
+                    </p>
+                    <p className="text-sm mt-0.5">{critique.verdict}</p>
+                  </div>
+                </div>
+                {critique.issues.length > 0 && (
+                  <div className="space-y-1.5">
+                    {critique.issues.map((iss, i) => (
+                      <div key={i} className="rounded-lg border bg-card px-3 py-2 text-sm">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                            iss.severity === "alta" ? "bg-red-100 text-red-700" : iss.severity === "média" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"
+                          }`}>{iss.severity}</span>
+                          <span className="text-xs font-medium text-muted-foreground">{iss.where}</span>
+                        </div>
+                        <p className="text-xs">{iss.problem}</p>
+                        <p className="text-xs mt-1 flex gap-1.5"><span className="text-emerald-600 shrink-0">→ corrigir:</span>{iss.fix}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {critique.strengths.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {critique.strengths.map((s, i) => (
+                      <span key={i} className="text-[11px] rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5">✓ {s}</span>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button size="sm" onClick={() => void applyCritiqueFixes()} disabled={refining}>
+                    {refining ? <><Loader2 className="mr-1.5 size-3.5 animate-spin" /> Aplicando…</> : <><Wand2 className="mr-1.5 size-3.5" /> Aplicar correções</>}
+                  </Button>
+                  <button onClick={() => setCritique(null)} className="text-[11px] text-muted-foreground hover:text-foreground">Dispensar</button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Checagem de fatos */}
+          {factCheck && (
+            <Card className="border-sky-200/60 bg-sky-50/30">
+              <CardContent className="py-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className={`flex items-center justify-center size-11 rounded-full shrink-0 ${
+                    factCheck.riskLevel === "baixo" ? "bg-emerald-100 text-emerald-700" : factCheck.riskLevel === "médio" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+                  }`}>
+                    <ShieldCheck className="size-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Checagem de fatos · risco {factCheck.riskLevel}</p>
+                    <p className="text-sm mt-0.5">{factCheck.verdict}</p>
+                  </div>
+                </div>
+                {factCheck.claims.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {factCheck.claims.map((c, i) => {
+                      const tone = c.verdict === "confirmado" ? "bg-emerald-100 text-emerald-700" : c.verdict === "falso" ? "bg-red-100 text-red-700" : c.verdict === "duvidoso" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600";
+                      return (
+                        <div key={i} className="rounded-lg border bg-card px-3 py-2 text-sm">
+                          <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${tone}`}>{c.verdict.replace("_", " ")}</span>
+                          <p className="text-xs mt-1">{c.claim}</p>
+                          <p className="text-[11px] text-muted-foreground mt-1">{c.explanation}</p>
+                          {c.correction && <p className="text-xs mt-1 flex gap-1.5"><span className="text-emerald-600 shrink-0">→ corrigir:</span>{c.correction}</p>}
+                          {c.source && <p className="text-[10px] text-muted-foreground mt-1 truncate">Fonte: {c.source}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Nenhuma afirmação factual de risco encontrada.</p>
+                )}
+                <button onClick={() => setFactCheck(null)} className="text-[11px] text-muted-foreground hover:text-foreground">Dispensar</button>
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1"><AlertTriangle className="size-3" /> Confira fontes importantes antes de publicar dado sensível.</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Variantes reaproveitadas */}
+          {variants && variants.length > 0 && (
+            <Card className="border-primary/30 bg-primary/[0.03]">
+              <CardContent className="py-4 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5"><Copy className="size-3.5" /> Reaproveitado</p>
+                {variants.map((v, i) => (
+                  <div key={i} className="rounded-lg border bg-card p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-semibold text-primary">{v.label}</span>
+                      <CopyButton text={v.content} />
+                    </div>
+                    <p className="text-xs whitespace-pre-wrap text-muted-foreground">{v.content}</p>
+                  </div>
+                ))}
+                <button onClick={() => setVariants(null)} className="text-[11px] text-muted-foreground hover:text-foreground">Dispensar</button>
+              </CardContent>
+            </Card>
+          )}
+
+          {!critique && !factCheck && !variants && (
+            <p className="text-sm text-muted-foreground">
+              Use as ferramentas acima para analisar e melhorar este conteúdo.
+            </p>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Actions */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
