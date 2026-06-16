@@ -1,4 +1,6 @@
 import type { Slide } from "@/lib/validations/generation";
+import type { FontKey } from "@/lib/render/carousel-themes";
+import { setFontToken } from "@/lib/render/carousel-themes";
 
 export interface CarouselTemplate {
   id: string;
@@ -6,8 +8,13 @@ export interface CarouselTemplate {
   description: string;
   slideCount: number;
   badge?: string;
-  /** Gera os slides com o tópico fornecido */
+  defaultFont: FontKey;
+  /** Gera os slides com o tópico fornecido (fonte já aplicada) */
   build(topic: string): Slide[];
+}
+
+function withFont(slides: Slide[], font: FontKey): Slide[] {
+  return slides.map((s) => ({ ...s, body: setFontToken(s.body ?? "", font) }));
 }
 
 export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
@@ -19,8 +26,9 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
 
     slideCount: 7,
     badge: "Popular",
+    defaultFont: "serif" as FontKey,
     build(topic) {
-      return [
+      return withFont([
         {
           index: 0,
           title: `*${topic.toUpperCase()}*`,
@@ -64,7 +72,7 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
           body: "Se isso fez sentido pra você, compartilha com quem precisa ver.\n[Layout: gradient]",
           cta: "Seguir para mais",
         },
-      ];
+      ], this.defaultFont);
     },
   },
 
@@ -75,8 +83,9 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
     description: "Grafite + serif. Autoridade e profundidade. Todos os slides em escuro.",
 
     slideCount: 7,
+    defaultFont: "serif" as FontKey,
     build(topic) {
-      return [
+      return withFont([
         {
           index: 0,
           title: `*${topic.toUpperCase()}*`,
@@ -120,7 +129,7 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
           body: "Qual parte ressoou mais com você?\n[Layout: gradient]",
           cta: "Comentar",
         },
-      ];
+      ], this.defaultFont);
     },
   },
 
@@ -131,8 +140,9 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
     description: "Preto + condensado. Títulos enormes, impacto visual máximo, estilo @asterisk.",
     slideCount: 6,
     badge: "Alto impacto",
+    defaultFont: "condensed" as FontKey,
     build(topic) {
-      return [
+      return withFont([
         {
           index: 0,
           title: `*${topic.toUpperCase()}*`,
@@ -170,7 +180,7 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
           body: "Se isso abriu sua cabeça, imagina o que vem por aí.\n[Layout: gradient]",
           cta: "Seguir",
         },
-      ];
+      ], this.defaultFont);
     },
   },
 
@@ -180,8 +190,9 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
     title: "Revista",
     description: "Branco + uppercase. Elegante, editorial de moda/negócios. Estilo @brandsdecoded.",
     slideCount: 8,
+    defaultFont: "sans" as FontKey,
     build(topic) {
-      return [
+      return withFont([
         {
           index: 0,
           title: `*${topic.toUpperCase()}*: O QUE NINGUÉM TE CONTOU`,
@@ -231,7 +242,7 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
           body: "Para consultar quando precisar.\n[Layout: gradient]",
           cta: "Seguir para mais",
         },
-      ];
+      ], this.defaultFont);
     },
   },
 
@@ -242,8 +253,9 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
     description: "Dark sólido com chips, citações e negrito inline. Autoridade + profundidade visual.",
     slideCount: 7,
     badge: "Seu estilo",
+    defaultFont: "serif" as FontKey,
     build(topic) {
-      return [
+      return withFont([
         {
           index: 0,
           title: `*${topic.toUpperCase()}*`,
@@ -287,7 +299,7 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
           body: "Vai precisar disso mais de uma vez.\n[Layout: gradient]",
           cta: "Seguir para mais",
         },
-      ];
+      ], this.defaultFont);
     },
   },
 
@@ -297,8 +309,9 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
     title: "Carrossel com Fotos",
     description: "Slides com imagem no topo + texto curto embaixo. Ideal para tutoriais visuais.",
     slideCount: 6,
+    defaultFont: "serif" as FontKey,
     build(topic) {
-      return [
+      return withFont([
         {
           index: 0,
           title: `*${topic.toUpperCase()}*`,
@@ -336,7 +349,7 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
           body: "Qual passo foi mais útil pra você?\n[Layout: gradient]",
           cta: "Comentar",
         },
-      ];
+      ], this.defaultFont);
     },
   },
 ];

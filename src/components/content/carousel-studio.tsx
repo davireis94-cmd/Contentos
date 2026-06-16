@@ -56,9 +56,14 @@ import {
 } from "@/lib/render/slide-geometry";
 import {
   CAROUSEL_THEMES,
+  FONT_OPTIONS,
   getThemeId,
+  getFontKey,
   setThemeToken,
+  setFontToken,
+  resolveFontFamily,
   type ThemeId,
+  type FontKey,
 } from "@/lib/render/carousel-themes";
 
 // Base do preview: 216×270 (4:5), escalada por transform. Mesma proporção do PNG.
@@ -222,6 +227,7 @@ function SortableThumbnail({
   total,
   isCurrent,
   B,
+  headingFont,
   onClick,
 }: {
   slide: Slide;
@@ -229,6 +235,7 @@ function SortableThumbnail({
   total: number;
   isCurrent: boolean;
   B: BrandTokens;
+  headingFont: string;
   onClick: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -251,7 +258,7 @@ function SortableThumbnail({
         style={{ width: 44, height: 55, display: "block" }}
         title={`Slide ${idx + 1}: ${slide.title}`}
       >
-        <SlideVisual slide={slide} idx={idx} total={total} B={B} />
+        <SlideVisual slide={slide} idx={idx} total={total} B={B} headingFont={headingFont} />
       </button>
     </div>
   );
@@ -319,11 +326,13 @@ function SlideVisual({
   idx,
   total,
   B,
+  headingFont,
 }: {
   slide: Slide;
   idx: number;
   total: number;
   B: BrandTokens;
+  headingFont: string;
 }) {
   const handle = B.handle;
   const body = slide.body ?? "";
@@ -496,7 +505,7 @@ function SlideVisual({
                   lineHeight: 1.08,
                   fontWeight: 700,
                   fontStyle: s.hl ? "italic" : "normal",
-                  fontFamily: s.hl ? "Georgia,serif" : "inherit",
+                  fontFamily: s.hl ? headingFont : "inherit",
                   color: s.hl ? B.primary : "#1A1310",
                   marginRight: 3,
                 }}
@@ -589,7 +598,7 @@ function SlideVisual({
                   fontSize: 23,
                   lineHeight: 1.0,
                   textTransform: "uppercase",
-                  fontFamily: "var(--font-anton), Impact, sans-serif",
+                  fontFamily: headingFont,
                   color: s.hl ? B.primary : "#fff",
                   borderBottom: s.hl ? `2px solid ${B.primary}` : "none",
                 }}
@@ -641,7 +650,7 @@ function SlideVisual({
               {slide.subtitle}
             </div>
           )}
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.12, marginBottom: 6, fontFamily: "Georgia,serif" }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.12, marginBottom: 6, fontFamily: headingFont }}>
             {slide.title}
           </div>
           {text && (
@@ -721,7 +730,7 @@ function SlideVisual({
               color: "#fff",
               lineHeight: 1.15,
               marginBottom: 6,
-              fontFamily: "Georgia,serif",
+              fontFamily: headingFont,
             }}
           >
             {slide.title}
@@ -793,7 +802,7 @@ function SlideVisual({
               color: "#fff",
               lineHeight: 1.15,
               marginBottom: 8,
-              fontFamily: "Georgia,serif",
+              fontFamily: headingFont,
             }}
           >
             {slide.title}
@@ -845,7 +854,7 @@ function SlideVisual({
               {slide.subtitle}
             </div>
           )}
-          <div style={{ fontSize: 14, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 12, fontFamily: "Georgia,serif" }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 12, fontFamily: headingFont }}>
             {slide.title}
           </div>
           {items.length > 0
@@ -899,7 +908,7 @@ function SlideVisual({
               {slide.subtitle}
             </div>
           )}
-          <div style={{ fontSize: 14, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 12, fontFamily: "Georgia,serif" }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 12, fontFamily: headingFont }}>
             {slide.title}
           </div>
           {steps.length > 0
@@ -975,7 +984,7 @@ function SlideVisual({
             color: B.darkBg,
             lineHeight: 1.15,
             marginBottom: 8,
-            fontFamily: isRevista ? "inherit" : "Georgia,serif",
+            fontFamily: headingFont,
             textTransform: isRevista ? "uppercase" : "none",
             letterSpacing: isRevista ? "0.3px" : "normal",
           }}>
@@ -1043,7 +1052,7 @@ function SlideVisual({
           color: "#fff",
           lineHeight: isBoldSans ? 0.95 : 1.15,
           marginBottom: 8,
-          fontFamily: isBoldSans ? "var(--font-anton), Impact, sans-serif" : "Georgia,serif",
+          fontFamily: headingFont,
           textTransform: isBoldSans ? "uppercase" : "none",
           letterSpacing: isEditorialDark ? "-0.3px" : "normal",
         }}>
@@ -1326,6 +1335,11 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
     startSave(() => void updateSlides(pieceId, next));
   }
 
+  function applyFont(fontKey: FontKey) {
+    const next = slides.map((s) => ({ ...s, body: setFontToken(s.body ?? "", fontKey) }));
+    persist(next);
+  }
+
   function applyTheme(themeId: ThemeId) {
     const def = CAROUSEL_THEMES.find((t) => t.id === themeId)!;
     const next = slides.map((s, i) => {
@@ -1563,7 +1577,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
                 left: 0,
               }}
             >
-              <SlideVisual slide={currentSlide} idx={current} total={slides.length} B={B} />
+              <SlideVisual slide={currentSlide} idx={current} total={slides.length} B={B} headingFont={resolveFontFamily(getFontKey(currentSlide.body), brandFontHeading)} />
             </div>
           </div>
 
@@ -1637,6 +1651,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
                     total={slides.length}
                     isCurrent={i === current}
                     B={B}
+                    headingFont={resolveFontFamily(getFontKey(s.body), brandFontHeading)}
                     onClick={() => goTo(i)}
                   />
                 ))}
@@ -1704,6 +1719,36 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
                         {t.label}
                       </div>
                       <div className="text-[10px] text-muted-foreground">{t.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Fonte do carrossel */}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">
+                Fonte dos títulos
+              </p>
+              <p className="text-[10px] text-muted-foreground/60 mb-2">
+                Aplica em todos os slides de uma vez
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {FONT_OPTIONS.filter((f) => f.key !== "brand" || brandFontHeading).map((f) => {
+                  const activeFontKey = getFontKey(currentSlide.body ?? "");
+                  const isActive = activeFontKey === f.key || (activeFontKey === null && f.key === "serif");
+                  return (
+                    <button
+                      key={f.key}
+                      onClick={() => applyFont(f.key)}
+                      className={`px-2.5 py-1.5 rounded-md text-[11px] border transition-colors ${
+                        isActive
+                          ? "border-primary bg-primary/5 text-primary font-semibold"
+                          : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                      }`}
+                      style={{ fontFamily: f.key === "brand" && brandFontHeading ? `"${brandFontHeading}", sans-serif` : f.preview }}
+                    >
+                      {f.label}{f.key === "brand" && brandFontHeading ? ` (${brandFontHeading})` : ""}
                     </button>
                   );
                 })}
