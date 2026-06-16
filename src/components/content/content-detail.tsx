@@ -2,7 +2,10 @@
 
 import React, { useState, useRef, useEffect, useCallback, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeft, CalendarClock, Check, ClipboardCopy, Copy, Loader2, Pencil, Send, Wand2, X } from "lucide-react";
+import { ArrowLeft, AlertTriangle, CalendarClock, Check, ClipboardCopy, Copy, Gavel, Loader2, Pencil, Send, ShieldCheck, Sparkles, Wand2, X } from "lucide-react";
+import type { CriticResult } from "@/lib/skills/content-critic";
+import type { RepurposeVariant } from "@/lib/skills/repurpose";
+import type { FactCheckResult } from "@/lib/skills/deep-research";
 import { DeletePieceButton } from "@/components/content/delete-piece-button";
 import { CarouselStudio } from "@/components/content/carousel-studio";
 import { stripHighlightMarks } from "@/lib/render/highlight";
@@ -248,6 +251,124 @@ export function ContentDetail({
   const [refineError, setRefineError] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // Ferramentas de IA sobre o post (mesmas do gerador)
+  const [critiquing, setCritiquing] = useState(false);
+  const [critique, setCritique] = useState<CriticResult | null>(null);
+  const [humanizing, setHumanizing] = useState(false);
+  const [humanizedOk, setHumanizedOk] = useState(false);
+  const [factChecking, setFactChecking] = useState(false);
+  const [factCheck, setFactCheck] = useState<FactCheckResult | null>(null);
+  const [repurposing, setRepurposing] = useState(false);
+  const [variants, setVariants] = useState<RepurposeVariant[] | null>(null);
+
+  async function handleCritique() {
+    if (critiquing) return;
+    setCritiquing(true);
+    try {
+      const res = await fetch("/api/critic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ output: { slides, caption, hashtags: output.hashtags, format } }),
+      });
+      const data = (await res.json()) as { result?: CriticResult; error?: string };
+      if (res.ok && data.result) setCritique(data.result);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCritiquing(false);
+    }
+  }
+
+  async function handleHumanize() {
+    if (humanizing) return;
+    setHumanizing(true);
+    try {
+      const res = await fetch("/api/humanize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ output: { slides, caption, hashtags: output.hashtags } }),
+      });
+      const data = (await res.json()) as { output?: { slides: Slide[]; caption: string }; error?: string };
+      if (res.ok && data.output) {
+        setSlides(data.output.slides);
+        setCaption(data.output.caption);
+        setCaptionDraft(data.output.caption);
+        startTransition(() => {
+          void updateSlides(pieceId, data.output!.slides);
+          void updateCaption(pieceId, data.output!.caption);
+        });
+        setHumanizedOk(true);
+        setTimeout(() => setHumanizedOk(false), 3000);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setHumanizing(false);
+    }
+  }
+
+  async function handleFactCheck() {
+    if (factChecking) return;
+    setFactChecking(true);
+    try {
+      const res = await fetch("/api/fact-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ output: { slides, caption, hashtags: output.hashtags, format } }),
+      });
+      const data = (await res.json()) as { result?: FactCheckResult; error?: string };
+      if (res.ok && data.result) setFactCheck(data.result);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setFactChecking(false);
+    }
+  }
+
+  async function handleRepurpose() {
+    if (repurposing) return;
+    setRepurposing(true);
+    try {
+      const res = await fetch("/api/repurpose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pieceId }),
+      });
+      const data = (await res.json()) as { variants?: RepurposeVariant[]; error?: string };
+      if (res.ok && data.variants) setVariants(data.variants);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setRepurposing(false);
+    }
+  }
+
+  async function applyCritiqueFixes() {
+    if (!critique || refining) return;
+    const instruction =
+      "Aplique estas correções ao conteúdo, mantendo a voz da marca e a estrutura. Reescreva o que for necessário:\n" +
+      critique.issues.map((i) => `- [${i.where}] ${i.problem} → ${i.fix}`).join("\n");
+    setRefining(true);
+    try {
+      const res = await fetch("/api/generate/refine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pieceId, message: instruction, history: [] }),
+      });
+      const data = (await res.json()) as { output?: { slides: Slide[]; caption: string }; error?: string };
+      if (res.ok && data.output) {
+        setSlides(data.output.slides);
+        setCaption(data.output.caption);
+        setCaptionDraft(data.output.caption);
+        setCritique(null);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setRefining(false);
+    }
+  }
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
@@ -404,6 +525,152 @@ export function ContentDetail({
             O post agendado aparece no Calendário. (A publicação automática nas redes depende da conexão no “Publicar”.)
           </p>
         </div>
+      )}
+
+      {/* Ferramentas de IA */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => void handleCritique()}
+          disabled={critiquing}
+          className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent text-muted-foreground hover:text-foreground"
+          title="Crítica honesta do post (gancho, retenção, CTA, cara de IA)"
+        >
+          {critiquing ? <><Loader2 className="size-3.5 animate-spin" /> Avaliando…</> : <><Gavel className="size-3.5" /> Criticar</>}
+        </button>
+        <button
+          onClick={() => void handleHumanize()}
+          disabled={humanizing}
+          className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+            humanizedOk ? "border-purple-300 bg-purple-50 text-purple-700" : "hover:bg-accent text-muted-foreground hover:text-foreground"
+          }`}
+          title="Reescreve para soar humano, sem clichê de IA"
+        >
+          {humanizing ? <><Loader2 className="size-3.5 animate-spin" /> Humanizando…</> : humanizedOk ? <><Check className="size-3.5" /> Humanizado</> : <><Sparkles className="size-3.5" /> Humanizar</>}
+        </button>
+        <button
+          onClick={() => void handleFactCheck()}
+          disabled={factChecking}
+          className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent text-muted-foreground hover:text-foreground"
+          title="Checa os fatos do post com busca na web"
+        >
+          {factChecking ? <><Loader2 className="size-3.5 animate-spin" /> Checando…</> : <><ShieldCheck className="size-3.5" /> Checar fatos</>}
+        </button>
+        <button
+          onClick={() => void handleRepurpose()}
+          disabled={repurposing}
+          className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent text-muted-foreground hover:text-foreground"
+          title="Adapta este post para Reels, thread, stories, newsletter…"
+        >
+          {repurposing ? <><Loader2 className="size-3.5 animate-spin" /> Adaptando…</> : <><Copy className="size-3.5" /> Reaproveitar</>}
+        </button>
+      </div>
+
+      {/* Crítica */}
+      {critique && (
+        <Card className="border-amber-200/60 bg-amber-50/30">
+          <CardContent className="py-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className={`flex items-center justify-center size-11 rounded-full text-sm font-bold shrink-0 ${
+                critique.score >= 75 ? "bg-emerald-100 text-emerald-700" : critique.score >= 50 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+              }`}>
+                {critique.score}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                  <Gavel className="size-3.5" /> Crítica honesta
+                </p>
+                <p className="text-sm mt-0.5">{critique.verdict}</p>
+              </div>
+            </div>
+            {critique.issues.length > 0 && (
+              <div className="space-y-1.5">
+                {critique.issues.map((iss, i) => (
+                  <div key={i} className="rounded-lg border bg-card px-3 py-2 text-sm">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                        iss.severity === "alta" ? "bg-red-100 text-red-700" : iss.severity === "média" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"
+                      }`}>{iss.severity}</span>
+                      <span className="text-xs font-medium text-muted-foreground">{iss.where}</span>
+                    </div>
+                    <p className="text-xs">{iss.problem}</p>
+                    <p className="text-xs mt-1 flex gap-1.5"><span className="text-emerald-600 shrink-0">→ corrigir:</span>{iss.fix}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {critique.strengths.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {critique.strengths.map((s, i) => (
+                  <span key={i} className="text-[11px] rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5">✓ {s}</span>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button size="sm" onClick={() => void applyCritiqueFixes()} disabled={refining}>
+                {refining ? <><Loader2 className="mr-1.5 size-3.5 animate-spin" /> Aplicando…</> : <><Wand2 className="mr-1.5 size-3.5" /> Aplicar correções</>}
+              </Button>
+              <button onClick={() => setCritique(null)} className="text-[11px] text-muted-foreground hover:text-foreground">Dispensar</button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Checagem de fatos */}
+      {factCheck && (
+        <Card className="border-sky-200/60 bg-sky-50/30">
+          <CardContent className="py-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className={`flex items-center justify-center size-11 rounded-full shrink-0 ${
+                factCheck.riskLevel === "baixo" ? "bg-emerald-100 text-emerald-700" : factCheck.riskLevel === "médio" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+              }`}>
+                <ShieldCheck className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Checagem de fatos · risco {factCheck.riskLevel}</p>
+                <p className="text-sm mt-0.5">{factCheck.verdict}</p>
+              </div>
+            </div>
+            {factCheck.claims.length > 0 ? (
+              <div className="space-y-1.5">
+                {factCheck.claims.map((c, i) => {
+                  const tone = c.verdict === "confirmado" ? "bg-emerald-100 text-emerald-700" : c.verdict === "falso" ? "bg-red-100 text-red-700" : c.verdict === "duvidoso" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600";
+                  return (
+                    <div key={i} className="rounded-lg border bg-card px-3 py-2 text-sm">
+                      <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${tone}`}>{c.verdict.replace("_", " ")}</span>
+                      <p className="text-xs mt-1">{c.claim}</p>
+                      <p className="text-[11px] text-muted-foreground mt-1">{c.explanation}</p>
+                      {c.correction && <p className="text-xs mt-1 flex gap-1.5"><span className="text-emerald-600 shrink-0">→ corrigir:</span>{c.correction}</p>}
+                      {c.source && <p className="text-[10px] text-muted-foreground mt-1 truncate">Fonte: {c.source}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Nenhuma afirmação factual de risco encontrada.</p>
+            )}
+            <button onClick={() => setFactCheck(null)} className="text-[11px] text-muted-foreground hover:text-foreground">Dispensar</button>
+            <p className="text-[11px] text-muted-foreground flex items-center gap-1"><AlertTriangle className="size-3" /> Confira fontes importantes antes de publicar dado sensível.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Variantes reaproveitadas */}
+      {variants && variants.length > 0 && (
+        <Card className="border-primary/30 bg-primary/[0.03]">
+          <CardContent className="py-4 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5"><Copy className="size-3.5" /> Reaproveitado</p>
+            {variants.map((v, i) => (
+              <div key={i} className="rounded-lg border bg-card p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-semibold text-primary">{v.label}</span>
+                  <CopyButton text={v.content} />
+                </div>
+                <p className="text-xs whitespace-pre-wrap text-muted-foreground">{v.content}</p>
+              </div>
+            ))}
+            <button onClick={() => setVariants(null)} className="text-[11px] text-muted-foreground hover:text-foreground">Dispensar</button>
+          </CardContent>
+        </Card>
       )}
 
       {/* Slides */}
