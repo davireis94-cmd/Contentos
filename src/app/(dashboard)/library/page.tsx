@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Calendar, Clock, Wand2 } from "lucide-react";
+import { Calendar, Clock, Images, Wand2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
 import { getSessionContext } from "@/lib/queries/context";
 import { STATUS_LABELS } from "@/types/app";
 import { DeletePieceButton } from "@/components/content/delete-piece-button";
+import { ImageGallery } from "@/components/library/image-gallery";
 import type { ContentStatus, ContentFormat } from "@/types/app";
 
 const FORMAT_LABELS: Record<ContentFormat, string> = {
@@ -34,14 +35,16 @@ const STATUS_DOT: Record<ContentStatus, string> = {
 export default async function LibraryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ brand?: string; status?: string; format?: string }>;
+  searchParams: Promise<{ brand?: string; status?: string; format?: string; tab?: string }>;
 }) {
   const { user, workspace, supabase } = await getSessionContext();
   if (!user) redirect("/login");
   if (!workspace) redirect("/onboarding");
 
-  const { brand: brandFilter, status: statusFilter, format: formatFilter } =
+  const { brand: brandFilter, status: statusFilter, format: formatFilter, tab } =
     await searchParams;
+
+  const activeTab = tab === "imagens" ? "imagens" : "conteudo";
 
   const [{ data: pieces }, { data: brands }] = await Promise.all([
     supabase
@@ -89,6 +92,36 @@ export default async function LibraryPage({
         </Button>
       </PageHeader>
 
+      {/* Tabs */}
+      <div className="flex items-center gap-1 border-b">
+        <Link
+          href="/library"
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            activeTab === "conteudo"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Conteúdo
+        </Link>
+        <Link
+          href="/library?tab=imagens"
+          className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            activeTab === "imagens"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Images className="size-3.5" />
+          Imagens geradas
+        </Link>
+      </div>
+
+      {activeTab === "imagens" && (
+        <ImageGallery />
+      )}
+
+      {activeTab === "conteudo" && <>
       {/* Upcoming scheduled strip */}
       {upcoming.length > 0 && (
         <div>
@@ -254,6 +287,7 @@ export default async function LibraryPage({
           })}
         </div>
       )}
+      </>}
     </div>
   );
 }
