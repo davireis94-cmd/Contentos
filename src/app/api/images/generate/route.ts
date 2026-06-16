@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { buildImagePrompt, type BrandImageContext } from "@/lib/images/prompt";
+import { buildSmartImagePrompt } from "@/lib/images/smart-prompt";
 import { generateImage } from "@/lib/images/generate";
 import { getImageModel } from "@/lib/images/models";
 import { trackUsage } from "@/lib/billing/track";
@@ -19,12 +20,13 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-  const { pieceId, slideIndex, model, topic, imageMode } = (await request.json()) as {
+  const { pieceId, slideIndex, model, topic, imageMode, userHint } = (await request.json()) as {
     pieceId: string;
     slideIndex: number;
     model: string;
     topic?: string;
     imageMode?: "bg" | "card-top" | "framed" | "half" | "none";
+    userHint?: string;
   };
 
   if (!pieceId || slideIndex == null || !model) {
@@ -79,7 +81,26 @@ export async function POST(request: NextRequest) {
   };
 
   const slideTopic = topic?.trim() || (piece.title as string) || "tema do post";
-  const prompt = buildImagePrompt(slideTopic, brandCtx, imageMode ?? "bg");
+
+  // Conteúdo do slide-alvo (título/subtítulo/corpo) para o prompt inteligente.
+  const slidesArr = Array.isArray(piece.slides) ? (piece.slides as Array<Record<string, unknown>>) : [];
+  const targetSlide =
+    slidesArr.find((s) => (s as { index?: number }).index === slideIndex) ?? slidesArr[slideIndex] ?? {};
+  const slideContent = {
+    title: (targetSlide.title as string) ?? slideTopic,
+    subtitle: (targetSlide.subtitle as string | null) ?? null,
+    body: (targetSlide.body as string | null) ?? null,
+  };
+
+  // IA escreve o prompt sob medida; cai no template determinístico se falhar.
+  const smart = await buildSmartImagePrompt({
+    topic: slideTopic,
+    slide: slideContent,
+    brand: brandCtx,
+    mode: imageMode ?? "bg",
+    userHint,
+  });
+  const prompt = smart ?? buildImagePrompt(slideTopic, brandCtx, imageMode ?? "bg");
 
   // Gera (Replicate ou Gemini direto)
   const result = await generateImage(model, prompt);

@@ -773,6 +773,8 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
   // Modo de encaixe desejado para a próxima imagem gerada/enviada (quando o slide
   // ainda não tem imagem). Com imagem, o modo vem do token [Image:] do slide.
   const [desiredMode, setDesiredMode] = useState<ImageMode>("card-top");
+  // Ajuste livre do usuário pro escritor de prompt (ex.: "sem pessoas", "mesa escura").
+  const [imgHint, setImgHint] = useState("");
   const [genImg, setGenImg] = useState(false);
   const [imgError, setImgError] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -792,6 +794,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
           model: imgModel,
           topic: currentSlide.title,
           imageMode: effectiveImageMode(currentSlide.body, true) === "bg" ? desiredMode : getImageMode(currentSlide.body),
+          userHint: imgHint.trim() || undefined,
         }),
       });
       const data = await res.json();
@@ -1397,6 +1400,19 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
                       );
                     })}
                   </div>
+                </div>
+
+                {/* Ajuste livre pra IA escrever o prompt da imagem */}
+                <div className="mb-3">
+                  <p className="text-[10px] text-muted-foreground/70 mb-1.5">
+                    Ajustar a imagem <span className="text-muted-foreground/50">(opcional — a IA decide o resto)</span>
+                  </p>
+                  <Input
+                    value={imgHint}
+                    onChange={(e) => setImgHint(e.target.value)}
+                    placeholder='Ex: "sem pessoas", "mesa escura com notebook", "mais minimalista"'
+                    className="text-xs h-8"
+                  />
                 </div>
 
                 {currentSlide.imageUrl ? (
