@@ -780,6 +780,8 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
   const [editImgBusy, setEditImgBusy] = useState(false);
   const [imgError, setImgError] = useState("");
   const [uploading, setUploading] = useState(false);
+  // Aba ativa do inspetor (divulgação progressiva — menos poluição).
+  const [panelTab, setPanelTab] = useState<"texto" | "imagem" | "estilo">("imagem");
 
   const currentSlide = slides[current];
 
@@ -1289,22 +1291,36 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
 
         {/* ── Editor panel ── */}
         <div className="flex-1 min-w-0 p-5">
-          <div className="flex items-start justify-between gap-3 mb-4">
-            <div>
-              <p className="text-sm font-semibold">Slide {current + 1}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                {LAYOUT_LABELS[layout] ?? layout}
-              </p>
-            </div>
-            {!editing && (
-              <Button size="sm" variant="outline" onClick={handleEdit}>
-                <Pencil className="mr-1.5 size-3.5" />
-                Editar
-              </Button>
-            )}
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <p className="text-sm font-semibold">Slide {current + 1}</p>
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border bg-background text-muted-foreground">
+              {LAYOUT_LABELS[layout] ?? layout}
+            </span>
           </div>
 
-          {/* Seletor de layout (1 clique) */}
+          {/* Abas do inspetor (divulgação progressiva) */}
+          <div className="flex items-center gap-1 mb-4 border-b">
+            {([
+              { id: "texto", label: "Texto" },
+              { id: "imagem", label: "Imagem" },
+              { id: "estilo", label: "Estilo" },
+            ] as const).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setPanelTab(t.id)}
+                className={`px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${
+                  panelTab === t.id
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Aba ESTILO ── */}
+          {panelTab === "estilo" && (
           <div className="mb-4">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5">
               Estilo do slide
@@ -1330,8 +1346,10 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
               )}
             </div>
           </div>
+          )}
 
-          {editing ? (
+          {/* ── Aba TEXTO ── */}
+          {panelTab === "texto" && (editing ? (
             <div className="space-y-3">
               <div>
                 <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -1401,6 +1419,11 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
             </div>
           ) : (
             <div className="space-y-2.5">
+              <div className="flex justify-end">
+                <Button size="sm" variant="outline" onClick={handleEdit}>
+                  <Pencil className="mr-1.5 size-3.5" /> Editar textos
+                </Button>
+              </div>
               <FieldBlock label="Título" value={currentSlide.title} mono={false} />
               {currentSlide.subtitle && (
                 <FieldBlock label="Subtítulo" value={currentSlide.subtitle} mono={false} />
@@ -1411,8 +1434,13 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
               {currentSlide.cta && (
                 <FieldBlock label="CTA" value={currentSlide.cta} mono={false} highlight />
               )}
+            </div>
+          ))}
 
-              {/* ── Imagem de fundo IA ── */}
+          {/* ── Aba IMAGEM ── */}
+          {panelTab === "imagem" && (
+            <div>
+              {/* ── Imagem do slide ── */}
               <div className="rounded-lg border bg-card p-3">
                 <div className="flex items-center gap-1.5 mb-2">
                   <Image className="size-3.5 text-primary" />
@@ -1465,12 +1493,29 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
 
                 {currentSlide.imageUrl ? (
                   <div className="space-y-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={currentSlide.imageUrl}
-                      alt=""
-                      className="w-full h-24 object-cover rounded-md border"
-                    />
+                    {/* Visualização grande e inteira (clique pra ampliar) */}
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <button
+                          className="block w-full rounded-md border bg-[repeating-conic-gradient(#0000000a_0_25%,transparent_0_50%)] bg-[length:16px_16px] overflow-hidden"
+                          title="Ver em tamanho real"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={currentSlide.imageUrl}
+                            alt=""
+                            className="w-full max-h-72 object-contain mx-auto"
+                          />
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-lg">
+                        <DialogHeader>
+                          <DialogTitle>Imagem do slide {current + 1}</DialogTitle>
+                        </DialogHeader>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={currentSlide.imageUrl} alt="" className="w-full rounded-lg" />
+                      </DialogContent>
+                    </Dialog>
 
                     {/* Editar ESTA imagem (mantém a foto, aplica só o ajuste) */}
                     <Button
