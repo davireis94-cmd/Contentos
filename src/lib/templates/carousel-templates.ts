@@ -4,7 +4,6 @@ export interface CarouselTemplate {
   id: string;
   title: string;
   description: string;
-  reference: string; // @conta
   slideCount: number;
   badge?: string;
   /** Gera os slides com o tópico fornecido */
@@ -17,7 +16,7 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
     id: "editorial-light",
     title: "Editorial Claro",
     description: "Creme + serif. Capa impactante, conteúdo em claro e escuro alternados, CTA em gradiente.",
-    reference: "@laschuk",
+
     slideCount: 7,
     badge: "Popular",
     build(topic) {
@@ -74,7 +73,7 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
     id: "editorial-dark",
     title: "Editorial Escuro",
     description: "Grafite + serif. Autoridade e profundidade. Todos os slides em escuro.",
-    reference: "@laschuk",
+
     slideCount: 7,
     build(topic) {
       return [
@@ -130,7 +129,6 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
     id: "bold-sans",
     title: "Bold Sans",
     description: "Preto + condensado. Títulos enormes, impacto visual máximo, estilo @asterisk.",
-    reference: "@asteriskcreate",
     slideCount: 6,
     badge: "Alto impacto",
     build(topic) {
@@ -181,7 +179,6 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
     id: "revista",
     title: "Revista",
     description: "Branco + uppercase. Elegante, editorial de moda/negócios. Estilo @brandsdecoded.",
-    reference: "@brandsdecoded",
     slideCount: 8,
     build(topic) {
       return [
@@ -238,12 +235,67 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
     },
   },
 
+  // ─── Estilo Davi Moxoto — escuro + elementos ricos ───────────────────────
+  {
+    id: "davi-moxoto",
+    title: "Escuro com Elementos",
+    description: "Dark sólido com chips, citações e negrito inline. Autoridade + profundidade visual.",
+    slideCount: 7,
+    badge: "Seu estilo",
+    build(topic) {
+      return [
+        {
+          index: 0,
+          title: `*${topic.toUpperCase()}*`,
+          subtitle: "O que ninguém fala sobre isso",
+          body: "Gancho que força o swipe. Uma linha que gera curiosidade.\n[Layout: editorial]",
+        },
+        {
+          index: 1,
+          title: "O cenário real",
+          subtitle: "CONTEXTO",
+          body: "Descreva a situação em 2 linhas diretas. **Seja específico aqui.**\n[chips: ponto 1 | ponto 2 | ponto 3]\n[Layout: dark]",
+        },
+        {
+          index: 2,
+          title: "O que a maioria não percebe",
+          subtitle: "O PROBLEMA",
+          body: "Explique o erro comum em 2 linhas.\n[quote: Insight central | Escreva aqui a frase de impacto do slide]\n[Layout: dark]",
+        },
+        {
+          index: 3,
+          title: "A virada",
+          subtitle: "O SHIFT",
+          body: "O que muda quando você enxerga diferente. **Isso é o que separa quem avança de quem fica parado.**\n[Layout: dark-photo]",
+        },
+        {
+          index: 4,
+          title: "Como aplicar na prática",
+          subtitle: "A SOLUÇÃO",
+          body: "Ação concreta e direta.\n[chips: passo 1 | passo 2 | passo 3]\n[quote: Na prática | Descreva aqui o resultado real de quem aplica]\n[Layout: dark]",
+        },
+        {
+          index: 5,
+          title: "O resultado quando você faz isso",
+          subtitle: "RESULTADO",
+          body: "2 linhas sobre a transformação. **Não é teoria — é o que acontece na prática.**\n[Layout: dark]",
+        },
+        {
+          index: 6,
+          title: "Salva esse post",
+          subtitle: "",
+          body: "Vai precisar disso mais de uma vez.\n[Layout: gradient]",
+          cta: "Seguir para mais",
+        },
+      ];
+    },
+  },
+
   // ─── Carrossel com imagem (card-top) ──────────────────────────────────────
   {
     id: "image-cards",
     title: "Carrossel com Fotos",
     description: "Slides com imagem no topo + texto curto embaixo. Ideal para tutoriais visuais.",
-    reference: "Estilo universal",
     slideCount: 6,
     build(topic) {
       return [

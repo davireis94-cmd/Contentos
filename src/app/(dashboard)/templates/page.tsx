@@ -10,6 +10,7 @@ const STYLE_PREVIEW: Record<string, { bg: string; accent: string; text: string; 
   "editorial-dark":  { bg: "#1E1E1E", accent: "#6B1A2A", text: "#ffffff", label: "Grafite · serif" },
   "bold-sans":       { bg: "#0A0A0A", accent: "#6B1A2A", text: "#ffffff", label: "Preto · Anton" },
   "revista":         { bg: "#ffffff", accent: "#111111", text: "#111111", label: "Branco · uppercase" },
+  "davi-moxoto":     { bg: "#180E0C", accent: "#6B1A2A", text: "#ffffff", label: "Escuro · chips + citação" },
   "image-cards":     { bg: "#FAF7F2", accent: "#6B1A2A", text: "#1A1310", label: "Claro · foto no topo" },
 };
 
@@ -48,17 +49,17 @@ export default async function TemplatesPage() {
               >
                 {/* Linha de acento */}
                 <div style={{ width: 24, height: 2, background: style.accent, marginBottom: 8 }} />
-                {/* Subtítulo */}
+                {/* Label de estilo */}
                 <div style={{
-                  fontSize: 9,
+                  fontSize: 8,
                   fontWeight: 700,
-                  letterSpacing: 2,
+                  letterSpacing: 1.5,
                   textTransform: "uppercase",
                   color: style.accent,
                   marginBottom: 4,
-                  opacity: 0.8,
+                  opacity: 0.7,
                 }}>
-                  {tpl.reference}
+                  {style.label}
                 </div>
                 {/* Título simulado */}
                 <div style={{
@@ -107,8 +108,6 @@ export default async function TemplatesPage() {
 
                 <div className="flex items-center justify-between mt-auto pt-1">
                   <div className="flex gap-2 text-[10px] text-muted-foreground">
-                    <span>{style.label}</span>
-                    <span>·</span>
                     <span>{tpl.slideCount} slides</span>
                   </div>
                   <UseTemplateButton
