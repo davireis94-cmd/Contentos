@@ -717,7 +717,15 @@ function SlideVisual({
             {slide.title}
           </div>
           {text && (
-            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.55)", lineHeight: 1.5 }}>
+            <div style={{
+              fontSize: 9,
+              color: "rgba(255,255,255,0.55)",
+              lineHeight: 1.5,
+              display: "-webkit-box",
+              WebkitBoxOrient: "vertical" as const,
+              WebkitLineClamp: 5,
+              overflow: "hidden",
+            }}>
               {bodySegs.map((s, i) => (
                 <span key={i} style={{ fontWeight: s.bold ? 700 : 400, color: s.bold ? "#fff" : undefined }}>{s.text}</span>
               ))}
@@ -917,6 +925,7 @@ function SlideVisual({
   // ── light ──
   if (layout === "light") {
     const isRevista = themeId === "revista";
+    const isEditorialLight = themeId === "editorial-light";
     return (
       <div
         style={{
@@ -934,6 +943,9 @@ function SlideVisual({
         <div style={{ padding: "0 20px 40px" }}>
           {isRevista && (
             <div style={{ height: 1, background: "rgba(0,0,0,0.15)", marginBottom: 10 }} />
+          )}
+          {isEditorialLight && (
+            <div style={{ height: 2, background: B.primary, marginBottom: 10, width: 28 }} />
           )}
           {slide.subtitle && (
             <div style={{
@@ -960,7 +972,15 @@ function SlideVisual({
             {slide.title}
           </div>
           {text && (
-            <div style={{ fontSize: 9, color: "#4A3A34", lineHeight: 1.55 }}>
+            <div style={{
+              fontSize: 9,
+              color: "#4A3A34",
+              lineHeight: 1.55,
+              display: "-webkit-box",
+              WebkitBoxOrient: "vertical" as const,
+              WebkitLineClamp: 5,
+              overflow: "hidden",
+            }}>
               {bodySegs.map((s, i) => (
                 <span key={i} style={{ fontWeight: s.bold ? 700 : 400, color: s.bold ? B.darkBg : undefined }}>{s.text}</span>
               ))}
@@ -976,12 +996,13 @@ function SlideVisual({
 
   // ── dark (default) ──
   const isBoldSans = themeId === "bold-sans";
+  const isEditorialDark = themeId === "editorial-dark";
   return (
     <div
       style={{
         width: "100%",
         height: "100%",
-        background: isBoldSans ? "#0A0A0A" : B.darkBg,
+        background: isBoldSans ? "#0A0A0A" : isEditorialDark ? "#1E1E1E" : B.darkBg,
         position: "relative",
         overflow: "hidden",
         display: "flex",
@@ -991,13 +1012,16 @@ function SlideVisual({
     >
       <TopBar themeId={themeId} isDark={true} handle={handle} idx={idx} total={total} />
       <div style={{ padding: "0 20px 40px" }}>
+        {isEditorialDark && (
+          <div style={{ height: 1, background: B.primary, marginBottom: 10, width: 28 }} />
+        )}
         {slide.subtitle && (
           <div style={{
             fontSize: 7,
             fontWeight: 700,
             letterSpacing: isBoldSans ? "2px" : "1.5px",
             textTransform: "uppercase",
-            color: isBoldSans ? B.primary : B.light,
+            color: isBoldSans ? B.primary : isEditorialDark ? "rgba(255,255,255,0.45)" : B.light,
             marginBottom: 8,
           }}>
             {slide.subtitle}
@@ -1011,11 +1035,20 @@ function SlideVisual({
           marginBottom: 8,
           fontFamily: isBoldSans ? "var(--font-anton), Impact, sans-serif" : "Georgia,serif",
           textTransform: isBoldSans ? "uppercase" : "none",
+          letterSpacing: isEditorialDark ? "-0.3px" : "normal",
         }}>
           {slide.title}
         </div>
         {text && (
-          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.65)", lineHeight: 1.55 }}>
+          <div style={{
+            fontSize: 9,
+            color: isEditorialDark ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.65)",
+            lineHeight: 1.55,
+            display: "-webkit-box",
+            WebkitBoxOrient: "vertical" as const,
+            WebkitLineClamp: 5,
+            overflow: "hidden",
+          }}>
             {bodySegs.map((s, i) => (
               <span key={i} style={{ fontWeight: s.bold ? 700 : 400, color: s.bold ? "#fff" : undefined }}>{s.text}</span>
             ))}
