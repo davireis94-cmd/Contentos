@@ -39,6 +39,12 @@ import {
   IMAGE_MODE_LABELS,
   type ImageMode,
 } from "@/lib/render/slide-geometry";
+import {
+  CAROUSEL_THEMES,
+  getThemeId,
+  setThemeToken,
+  type ThemeId,
+} from "@/lib/render/carousel-themes";
 
 // Base do preview: 216×270 (4:5), escalada por transform. Mesma proporção do PNG.
 const PREVIEW_W = 216;
@@ -93,6 +99,61 @@ function reindex(slides: Slide[]): Slide[] {
   return slides.map((s, i) => ({ ...s, index: i }));
 }
 
+// ── Móvel: etiqueta + contador (aparece em todos os slides quando há tema) ──
+
+function TopBar({
+  themeId,
+  isDark,
+  handle,
+  idx,
+  total,
+}: {
+  themeId: ThemeId | null;
+  isDark: boolean;
+  handle: string | null;
+  idx: number;
+  total: number;
+}) {
+  if (!themeId) return null;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        padding: "9px 16px 0",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        zIndex: 10,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 6,
+          fontWeight: 700,
+          letterSpacing: 2,
+          textTransform: "uppercase",
+          color: isDark ? "rgba(255,255,255,0.42)" : "rgba(0,0,0,0.28)",
+        }}
+      >
+        {handle ?? ""}
+      </span>
+      <span
+        style={{
+          fontSize: 6,
+          fontWeight: 600,
+          letterSpacing: 0.5,
+          color: isDark ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.2)",
+        }}
+      >
+        {String(idx + 1).padStart(2, "0")}/{String(total).padStart(2, "0")}
+      </span>
+    </div>
+  );
+}
+
 // ── Slide Visual Component ─────────────────────────────────────────────────
 
 function SlideVisual({
@@ -111,6 +172,7 @@ function SlideVisual({
   const layout = getLayout(body);
   const text = cleanBody(body);
   const pct = ((idx + 1) / total) * 100;
+  const themeId = getThemeId(body);
   const isDark = layout === "editorial" || (layout !== "light" && layout !== "feature-list" && layout !== "step-list");
   const isLast = idx === total - 1;
 
@@ -213,6 +275,7 @@ function SlideVisual({
     const segs = parseTitleHighlight(slide.title);
     return (
       <div style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden", background: B.lightBg }}>
+        <TopBar themeId={themeId} isDark={false} handle={handle} idx={idx} total={total} />
         <div
           style={{
             position: "absolute",
@@ -312,6 +375,7 @@ function SlideVisual({
           background: B.darkBg,
         }}
       >
+        <TopBar themeId={themeId} isDark={true} handle={handle} idx={idx} total={total} />
         {slide.imageUrl ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -383,6 +447,7 @@ function SlideVisual({
           background: B.darkBg,
         }}
       >
+        <TopBar themeId={themeId} isDark={true} handle={handle} idx={idx} total={total} />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={slide.imageUrl}
@@ -433,6 +498,7 @@ function SlideVisual({
           justifyContent: "flex-end",
         }}
       >
+        <TopBar themeId={themeId} isDark={true} handle={handle} idx={idx} total={total} />
         {/* Simulated photo gradient */}
         <div
           style={{
@@ -514,6 +580,7 @@ function SlideVisual({
           justifyContent: "center",
         }}
       >
+        <TopBar themeId={themeId} isDark={true} handle={handle} idx={idx} total={total} />
         <div style={{ textAlign: "center", padding: "0 20px", position: "relative", zIndex: 2 }}>
           <div
             style={{
@@ -587,6 +654,7 @@ function SlideVisual({
           justifyContent: "flex-end",
         }}
       >
+        <TopBar themeId={themeId} isDark={false} handle={handle} idx={idx} total={total} />
         <div style={{ padding: "0 20px 40px" }}>
           {slide.subtitle && (
             <div style={{ fontSize: 7, fontWeight: 600, letterSpacing: "1.5px", textTransform: "uppercase", color: B.primary, marginBottom: 8 }}>
@@ -640,6 +708,7 @@ function SlideVisual({
           justifyContent: "flex-end",
         }}
       >
+        <TopBar themeId={themeId} isDark={false} handle={handle} idx={idx} total={total} />
         <div style={{ padding: "0 20px 40px" }}>
           {slide.subtitle && (
             <div style={{ fontSize: 7, fontWeight: 600, letterSpacing: "1.5px", textTransform: "uppercase", color: B.primary, marginBottom: 8 }}>
@@ -681,12 +750,13 @@ function SlideVisual({
 
   // ── light ──
   if (layout === "light") {
+    const isRevista = themeId === "revista";
     return (
       <div
         style={{
           width: "100%",
           height: "100%",
-          background: B.lightBg,
+          background: isRevista ? "#FFFFFF" : B.lightBg,
           position: "relative",
           overflow: "hidden",
           display: "flex",
@@ -694,13 +764,33 @@ function SlideVisual({
           justifyContent: "flex-end",
         }}
       >
+        <TopBar themeId={themeId} isDark={false} handle={handle} idx={idx} total={total} />
         <div style={{ padding: "0 20px 40px" }}>
+          {isRevista && (
+            <div style={{ height: 1, background: "rgba(0,0,0,0.15)", marginBottom: 10 }} />
+          )}
           {slide.subtitle && (
-            <div style={{ fontSize: 7, fontWeight: 600, letterSpacing: "1.5px", textTransform: "uppercase", color: B.primary, marginBottom: 8 }}>
+            <div style={{
+              fontSize: 7,
+              fontWeight: isRevista ? 800 : 600,
+              letterSpacing: isRevista ? "2px" : "1.5px",
+              textTransform: "uppercase",
+              color: isRevista ? "#111" : B.primary,
+              marginBottom: 8,
+            }}>
               {slide.subtitle}
             </div>
           )}
-          <div style={{ fontSize: 15, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 8, fontFamily: "Georgia,serif" }}>
+          <div style={{
+            fontSize: 15,
+            fontWeight: 700,
+            color: B.darkBg,
+            lineHeight: 1.15,
+            marginBottom: 8,
+            fontFamily: isRevista ? "inherit" : "Georgia,serif",
+            textTransform: isRevista ? "uppercase" : "none",
+            letterSpacing: isRevista ? "0.3px" : "normal",
+          }}>
             {slide.title}
           </div>
           {text && (
@@ -716,12 +806,13 @@ function SlideVisual({
   }
 
   // ── dark (default) ──
+  const isBoldSans = themeId === "bold-sans";
   return (
     <div
       style={{
         width: "100%",
         height: "100%",
-        background: B.darkBg,
+        background: isBoldSans ? "#0A0A0A" : B.darkBg,
         position: "relative",
         overflow: "hidden",
         display: "flex",
@@ -729,13 +820,29 @@ function SlideVisual({
         justifyContent: "flex-end",
       }}
     >
+      <TopBar themeId={themeId} isDark={true} handle={handle} idx={idx} total={total} />
       <div style={{ padding: "0 20px 40px" }}>
         {slide.subtitle && (
-          <div style={{ fontSize: 7, fontWeight: 600, letterSpacing: "1.5px", textTransform: "uppercase", color: B.light, marginBottom: 8 }}>
+          <div style={{
+            fontSize: 7,
+            fontWeight: 700,
+            letterSpacing: isBoldSans ? "2px" : "1.5px",
+            textTransform: "uppercase",
+            color: isBoldSans ? B.primary : B.light,
+            marginBottom: 8,
+          }}>
             {slide.subtitle}
           </div>
         )}
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.15, marginBottom: 8, fontFamily: "Georgia,serif" }}>
+        <div style={{
+          fontSize: isBoldSans ? 18 : 15,
+          fontWeight: 700,
+          color: "#fff",
+          lineHeight: isBoldSans ? 0.95 : 1.15,
+          marginBottom: 8,
+          fontFamily: isBoldSans ? "var(--font-anton), Impact, sans-serif" : "Georgia,serif",
+          textTransform: isBoldSans ? "uppercase" : "none",
+        }}>
           {slide.title}
         </div>
         {text && (
@@ -1002,6 +1109,19 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
   function persist(next: Slide[]) {
     onSlidesChange(next);
     startSave(() => void updateSlides(pieceId, next));
+  }
+
+  function applyTheme(themeId: ThemeId) {
+    const def = CAROUSEL_THEMES.find((t) => t.id === themeId)!;
+    const next = slides.map((s, i) => {
+      const isCover = i === 0;
+      const isCta = i === slides.length - 1 && slides.length > 1;
+      const targetLayout = isCover ? def.coverLayout : isCta ? def.ctaLayout : def.contentLayout;
+      let body = setLayoutToken(s.body ?? "", targetLayout);
+      body = setThemeToken(body, themeId);
+      return { ...s, body };
+    });
+    persist(next);
   }
 
   function applyLayout(layoutKey: string) {
@@ -1321,9 +1441,43 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
 
           {/* ── Aba ESTILO ── */}
           {panelTab === "estilo" && (
-          <div className="mb-4">
+          <div className="space-y-5">
+            {/* Tema do carrossel (kit 1-clique, aplica em todos os slides) */}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">
+                Tema do carrossel
+              </p>
+              <p className="text-[10px] text-muted-foreground/60 mb-2">
+                Aplica layout + estilo em todos os slides de uma vez
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {CAROUSEL_THEMES.map((t) => {
+                  const activeTheme = getThemeId(currentSlide.body ?? "");
+                  const isActive = activeTheme === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => applyTheme(t.id)}
+                      className={`rounded-lg border p-2.5 text-left transition-colors ${
+                        isActive
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-foreground/30 hover:bg-muted/40"
+                      }`}
+                    >
+                      <div className={`text-[11px] font-semibold mb-0.5 ${isActive ? "text-primary" : ""}`}>
+                        {t.label}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">{t.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Layout do slide atual (override individual) */}
+            <div>
             <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5">
-              Estilo do slide
+              Layout deste slide
             </p>
             <div className="flex flex-wrap gap-1.5">
               {QUICK_LAYOUTS.map((l) => (
@@ -1344,6 +1498,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
                   {LAYOUT_LABELS[layout]}
                 </span>
               )}
+            </div>
             </div>
           </div>
           )}
