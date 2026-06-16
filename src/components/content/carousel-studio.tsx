@@ -372,17 +372,19 @@ function SlideVisual({
             left: G.text.x,
             top: G.text.y,
             width: G.text.w,
+            maxHeight: G.text.bottom - G.text.y,
+            overflow: "hidden",
             display: "flex",
             flexDirection: "column",
             alignItems: G.text.align === "center" ? "center" : "flex-start",
           }}
         >
           {slide.subtitle && (
-            <div style={{ fontSize: G.font.sub, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", color: B.primary, marginBottom: 4, textAlign: G.text.align }}>
+            <div style={{ fontSize: G.font.sub, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", color: B.primary, marginBottom: 4, textAlign: G.text.align, flexShrink: 0 }}>
               {slide.subtitle}
             </div>
           )}
-          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: G.text.align === "center" ? "center" : "flex-start" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: G.text.align === "center" ? "center" : "flex-start", flexShrink: 0 }}>
             {segs.map((s, i) => (
               <span
                 key={i}
@@ -401,8 +403,8 @@ function SlideVisual({
             ))}
           </div>
           {text && (
-            <div style={{ fontSize: G.font.body, color: "#5A4A44", lineHeight: 1.5, marginTop: 6, textAlign: G.text.align }}>
-              {text.slice(0, imgMode === "half" ? 140 : 90)}
+            <div style={{ fontSize: G.font.body, color: "#5A4A44", lineHeight: 1.5, marginTop: 6, textAlign: G.text.align, overflow: "hidden" }}>
+              {text}
             </div>
           )}
         </div>
@@ -530,8 +532,8 @@ function SlideVisual({
             {slide.title}
           </div>
           {text && (
-            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.8)", lineHeight: 1.5 }}>
-              {text.slice(0, 90)}
+            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.8)", lineHeight: 1.5, overflow: "hidden", maxHeight: 50 }}>
+              {text}
             </div>
           )}
         </div>
@@ -612,8 +614,8 @@ function SlideVisual({
             {slide.title}
           </div>
           {text && (
-            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", lineHeight: 1.5 }}>
-              {text.slice(0, 90)}
+            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", lineHeight: 1.5, overflow: "hidden", maxHeight: 50 }}>
+              {text}
             </div>
           )}
         </div>
@@ -674,7 +676,7 @@ function SlideVisual({
           </div>
           {text && (
             <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", lineHeight: 1.5, marginBottom: 10 }}>
-              {text.slice(0, 80)}
+              {text}
             </div>
           )}
           <div
@@ -741,7 +743,7 @@ function SlideVisual({
                   </div>
                 </div>
               ))
-            : <div style={{ fontSize: 9, color: "#4A3A34", lineHeight: 1.5 }}>{text.slice(0, 120)}</div>
+            : <div style={{ fontSize: 9, color: "#4A3A34", lineHeight: 1.5, overflow: "hidden", maxHeight: 70 }}>{text}</div>
           }
         </div>
         {progressBar}
@@ -797,7 +799,7 @@ function SlideVisual({
                   </div>
                 </div>
               ))
-            : <div style={{ fontSize: 9, color: "#4A3A34", lineHeight: 1.5 }}>{text.slice(0, 120)}</div>
+            : <div style={{ fontSize: 9, color: "#4A3A34", lineHeight: 1.5, overflow: "hidden", maxHeight: 70 }}>{text}</div>
           }
         </div>
         {progressBar}
@@ -853,7 +855,7 @@ function SlideVisual({
           </div>
           {text && (
             <div style={{ fontSize: 9, color: "#4A3A34", lineHeight: 1.55 }}>
-              {text.slice(0, 150)}
+              {text}
             </div>
           )}
         </div>
@@ -904,8 +906,8 @@ function SlideVisual({
           {slide.title}
         </div>
         {text && (
-          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", lineHeight: 1.55 }}>
-            {text.slice(0, 150)}
+          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", lineHeight: 1.55, overflow: "hidden", maxHeight: 60 }}>
+            {text}
           </div>
         )}
       </div>
