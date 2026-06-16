@@ -23,7 +23,7 @@ export async function updatePieceDate(pieceId: string, scheduledFor: string | nu
 
   await supabase
     .from("content_pieces")
-    .update({ scheduled_for: scheduledFor, status: scheduledFor ? "scheduled" : undefined })
+    .update({ start_date: scheduledFor, status: scheduledFor ? "scheduled" : undefined })
     .eq("id", pieceId);
 
   revalidatePath("/calendar");
@@ -47,7 +47,7 @@ export async function createIdea(formData: FormData) {
     title: title.trim(),
     format,
     status: scheduledFor ? "scheduled" : "idea",
-    scheduled_for: scheduledFor || null,
+    start_date: scheduledFor || null,
   });
 
   revalidatePath("/calendar");

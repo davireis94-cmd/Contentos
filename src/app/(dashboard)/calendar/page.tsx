@@ -14,7 +14,7 @@ export default async function CalendarPage() {
     supabase
       .from("content_pieces")
       .select(
-        "id, title, format, status, scheduled_for, brand_id, brands(id, name)"
+        "id, title, format, status, start_date, brand_id, brands(id, name)"
       )
       .eq("workspace_id", workspace.id)
       .order("created_at", { ascending: false }),
@@ -34,7 +34,7 @@ export default async function CalendarPage() {
       title: p.title,
       format: p.format,
       status: p.status as ContentStatus,
-      scheduledFor: p.scheduled_for,
+      scheduledFor: p.start_date,
       brandId: p.brand_id,
       brandName: brand?.name ?? "—",
     };

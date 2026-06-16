@@ -18,7 +18,7 @@ export default async function ContentPiecePage({
 
   const { data: piece, error: pieceError } = await supabase
     .from("content_pieces")
-    .select("id, title, format, status, slides, caption, hashtags, created_at, scheduled_for, brand_id, brands(name, identity)")
+    .select("id, title, format, status, slides, caption, hashtags, created_at, start_date, brand_id, brands(name, identity)")
     .eq("id", pieceId)
     .eq("workspace_id", workspace.id)
     .maybeSingle();
@@ -86,7 +86,7 @@ export default async function ContentPiecePage({
       format={piece.format}
       status={piece.status as ContentStatus}
       createdAt={piece.created_at}
-      scheduledFor={(piece as { scheduled_for?: string | null }).scheduled_for ?? null}
+      scheduledFor={(piece as { start_date?: string | null }).start_date ?? null}
       brandName={brandName}
       brandColors={brandColors}
       brandHandle={brandHandle}

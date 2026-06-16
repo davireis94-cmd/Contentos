@@ -221,7 +221,7 @@ export function ContentDetail({
   const [captionDraft, setCaptionDraft] = useState(output.caption);
   const [, startTransition] = useTransition();
 
-  // Agendamento (dia/hora) — grava em scheduled_for e aparece no Calendário.
+  // Agendamento (dia/hora) — grava em start_date (coluna real) e aparece no Calendário.
   const [schedOpen, setSchedOpen] = useState(false);
   const [schedAt, setSchedAt] = useState<string | null>(scheduledFor ?? null);
   const [schedVal, setSchedVal] = useState(isoToLocalInput(scheduledFor));
