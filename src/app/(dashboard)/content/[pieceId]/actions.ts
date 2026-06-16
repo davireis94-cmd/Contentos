@@ -42,7 +42,9 @@ export async function updateSlides(pieceId: string, slides: Slide[]) {
     .from("content_pieces")
     .update({ slides })
     .eq("id", pieceId);
-  revalidatePath(`/content/${pieceId}`);
+  // Sem revalidatePath: este é um autosave do editor (o cliente já tem o estado).
+  // Revalidar aqui re-renderiza a página e faz o scroll subir pro topo ao gerar
+  // imagem/editar slide. A Biblioteca é revalidada ao navegar.
 }
 
 export async function updateCaption(pieceId: string, caption: string) {
@@ -51,7 +53,7 @@ export async function updateCaption(pieceId: string, caption: string) {
     .from("content_pieces")
     .update({ caption })
     .eq("id", pieceId);
-  revalidatePath(`/content/${pieceId}`);
+  // Sem revalidatePath (autosave — ver updateSlides).
 }
 
 export async function deleteContentPiece(pieceId: string) {

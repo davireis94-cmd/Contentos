@@ -132,6 +132,16 @@ FORMATO DE SAÍDA (retorne EXATAMENTE esta estrutura, sem markdown, sem texto an
 
     const parsed = generationOutputSchema.parse(rawObj);
 
+    // Preserva a imagem (imageUrl) de cada slide — a IA refina só o TEXTO e não
+    // ecoa o imageUrl, então sem isso a imagem gerada some ao refinar o post.
+    const origSlides = Array.isArray(piece.slides)
+      ? (piece.slides as Array<{ index?: number; imageUrl?: string }>)
+      : [];
+    parsed.slides = parsed.slides.map((s, i) => {
+      const orig = origSlides.find((o) => o.index === s.index) ?? origSlides[i];
+      return orig?.imageUrl ? { ...s, imageUrl: orig.imageUrl } : s;
+    });
+
     await supabase
       .from("content_pieces")
       .update({
