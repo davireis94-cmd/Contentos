@@ -164,17 +164,35 @@ export function StreamOutput({ state }: Props) {
 
   if (state.status === "running") {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center gap-4 py-10">
-          <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-            <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      <Card className="border-border/50">
+        <CardContent className="flex flex-col items-center gap-6 py-12">
+          {/* Spinner animado */}
+          <div className="relative flex size-16 items-center justify-center">
+            <div className="absolute inset-0 rounded-full border-2 border-border" />
+            <div className="absolute inset-0 rounded-full border-2 border-t-primary animate-spin" />
+            <Sparkles className="size-6 text-primary" />
           </div>
-          <div className="space-y-1 text-center">
-            {state.messages.map((msg, i) => (
-              <p key={i} className={i === state.messages.length - 1 ? "text-sm font-medium" : "text-xs text-muted-foreground line-through"}>
-                {msg}
-              </p>
-            ))}
+          {/* Etapas */}
+          <div className="flex flex-col gap-2 min-w-[220px]">
+            {state.messages.map((msg, i) => {
+              const isDone = i < state.messages.length - 1;
+              const isCurrent = i === state.messages.length - 1;
+              return (
+                <div key={i} className={`flex items-center gap-2.5 transition-opacity ${isDone ? "opacity-40" : "opacity-100"}`}>
+                  <div className={`shrink-0 flex size-5 items-center justify-center rounded-full border ${isDone ? "border-primary bg-primary" : isCurrent ? "border-primary" : "border-border"}`}>
+                    {isDone
+                      ? <Check className="size-3 text-primary-foreground" />
+                      : isCurrent
+                        ? <Loader2 className="size-3 animate-spin text-primary" />
+                        : <div className="size-1.5 rounded-full bg-muted-foreground/30" />
+                    }
+                  </div>
+                  <span className={`text-sm ${isCurrent ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                    {msg}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>

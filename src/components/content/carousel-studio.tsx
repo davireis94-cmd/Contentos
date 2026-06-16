@@ -1332,7 +1332,10 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
       const isCover = i === 0;
       const isCta = i === slides.length - 1 && slides.length > 1;
       const targetLayout = isCover ? def.coverLayout : isCta ? def.ctaLayout : def.contentLayout;
-      let body = setLayoutToken(s.body ?? "", targetLayout);
+      const imgMode = getImageMode(s.body);
+      const hasContainedImage = imgMode === "card-top" || imgMode === "framed" || imgMode === "half";
+      // Slides com imagem contida já ignoram [Layout:] na renderização — não sobrescrever
+      let body = hasContainedImage ? (s.body ?? "") : setLayoutToken(s.body ?? "", targetLayout);
       body = setThemeToken(body, themeId);
       return { ...s, body };
     });
