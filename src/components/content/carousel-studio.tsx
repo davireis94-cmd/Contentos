@@ -506,7 +506,17 @@ function SlideVisual({
             ))}
           </div>
           {text && (
-            <div style={{ fontSize: G.font.body, color: "#5A4A44", lineHeight: 1.5, marginTop: 6, textAlign: G.text.align, overflow: "hidden" }}>
+            <div style={{
+              fontSize: G.font.body,
+              color: "#5A4A44",
+              lineHeight: 1.5,
+              marginTop: 6,
+              textAlign: G.text.align,
+              display: "-webkit-box",
+              WebkitBoxOrient: "vertical" as const,
+              WebkitLineClamp: 4,
+              overflow: "hidden",
+            }}>
               {text}
             </div>
           )}

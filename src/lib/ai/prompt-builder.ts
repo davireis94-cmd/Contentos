@@ -246,12 +246,13 @@ Formato obrigatório do body para step-list (um passo por linha, antes da nota):
 Para dark, dark-photo, light e gradient: body é texto normal + nota ao final.` : "";
 
   const carouselDepthGuide = input.format === "carousel" ? `
-## PROFUNDIDADE OBRIGATÓRIA POR SLIDE
-Slide 0 (Hook): título impactante de 5–9 palavras + corpo de 2–3 linhas que amplifica a promessa ou a dor concreta
-Slides 1–2 (Problema / Contexto): desenvolva o cenário real que o público vive — mínimo 3–4 linhas de corpo, uma por ideia
-Slides 3–4 (Conteúdo principal): a carne do argumento — mínimo 4 linhas ou lista estruturada com detalhe real
-Slide 5 (Síntese / Virada): o insight que muda a perspectiva — mínimo 3 linhas, escreva como quem aprendeu isso na prática
-Slide 6 (CTA): pergunta que gera reflexão + chamada concreta (ex: "Salva esse carrossel", "Me conta nos comentários", "Segue pra não perder o próximo")` : "";
+## REGRAS DE CORPO DOS SLIDES (CRÍTICO — respeite sempre)
+- Body de cada slide: MÁXIMO 130 caracteres de texto limpo. Carrosséis de referência têm 2–3 linhas curtas, não parágrafos.
+- Slide 0 (Hook): título impactante + corpo de 1–2 linhas que amplifica a tensão. Corpo vazio é válido se o título já basta.
+- Slides de conteúdo: 1 ideia central em 2–3 linhas curtas e diretas. Sem desenvolvimento extenso — o swipe é o ritmo.
+- Use feature-list ou step-list quando a ideia tem 3+ itens — não escreva lista em texto corrido.
+- Slide CTA (último): 1–2 linhas + CTA direto no campo "cta". Corpo mínimo.
+- Se o slide tiver imagem no body (card-top, framed, half, bg como [Image: x]), o corpo de texto deve ser ainda mais curto: máximo 80 chars.` : "";
 
   const hookGuide = `
 ## TÉCNICAS DE GANCHO — ESCOLHA A MAIS ADEQUADA AO TÓPICO
