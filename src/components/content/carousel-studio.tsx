@@ -601,8 +601,8 @@ function SlideVisual({
                   lineHeight: 1.0,
                   textTransform: "uppercase",
                   fontFamily: headingFont,
-                  color: s.hl ? B.primary : "#fff",
-                  borderBottom: s.hl ? `2px solid ${B.primary}` : "none",
+                  color: s.hl ? B.vivid : "#fff",
+                  borderBottom: s.hl ? `2px solid ${B.vivid}` : "none",
                 }}
               >
                 {s.text}
@@ -1368,8 +1368,9 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
       const targetLayout = isCover ? def.coverLayout : isCta ? def.ctaLayout : def.contentLayout;
       const imgMode = getImageMode(s.body);
       const hasContainedImage = imgMode === "card-top" || imgMode === "framed" || imgMode === "half";
-      // Slides com imagem contida já ignoram [Layout:] na renderização — não sobrescrever
-      let body = hasContainedImage ? (s.body ?? "") : setLayoutToken(s.body ?? "", targetLayout);
+      const hasBgImage = imgMode === "bg" && !!s.imageUrl;
+      // Slides com imagem contida ou de fundo preservam seu layout
+      let body = (hasContainedImage || hasBgImage) ? (s.body ?? "") : setLayoutToken(s.body ?? "", targetLayout);
       body = setThemeToken(body, themeId);
       return { ...s, body };
     });

@@ -6,6 +6,7 @@
 export interface BrandTokens {
   primary: string;
   light: string;
+  vivid: string;   // primary clareado 55% → legível em fundo escuro
   dark: string;
   darkBg: string;
   lightBg: string;
@@ -18,6 +19,7 @@ export interface BrandTokens {
 export const DEFAULT_TOKENS: BrandTokens = {
   primary: "#6B1A2A",
   light: "#9B3A4A",
+  vivid: "#C4A3AA",
   dark: "#3D0F18",
   darkBg: "#180E0C",
   lightBg: "#FAF7F2",
@@ -81,10 +83,11 @@ export function deriveBrandTokens(
 
   const dark = mix(baseRgb, BLACK, 0.45);
   const light = accentRgb ? rgbToHex(...accentRgb) : mix(baseRgb, WHITE, 0.28);
+  const vivid = mix(baseRgb, WHITE, 0.55); // claro o suficiente p/ funfar em fundo escuro
   const darkBg = mix(baseRgb, BLACK, 0.82); // quase preto com leve tom da marca
   const lightBg = mix(baseRgb, WHITE, 0.94); // quase branco com leve tom
   const lightBorder = mix(baseRgb, WHITE, 0.86);
   const gradient = `linear-gradient(165deg,${dark} 0%,${primary} 50%,${light} 100%)`;
 
-  return { primary, light, dark, darkBg, lightBg, lightBorder, gradient, handle: cleanHandle };
+  return { primary, light, vivid, dark, darkBg, lightBg, lightBorder, gradient, handle: cleanHandle };
 }
