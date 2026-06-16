@@ -114,6 +114,106 @@ function reindex(slides: Slide[]): Slide[] {
   return slides.map((s, i) => ({ ...s, index: i }));
 }
 
+// ── Parsers de elementos ricos ─────────────────────────────────────────────
+
+/** [chips: tag1 | tag2 | tag3] — pills arredondadas no slide */
+function parseChips(body: string): string[] {
+  const m = (body ?? "").match(/\[chips:\s*([^\]]+)\]/i);
+  if (!m) return [];
+  return m[1].split("|").map((s) => s.trim()).filter(Boolean);
+}
+
+/** [quote: Rótulo | Texto da citação] — caixa inset com label + itálico */
+function parseQuoteCard(body: string): { label: string; text: string } | null {
+  const m = (body ?? "").match(/\[quote:\s*([^|]+)\|([^\]]+)\]/i);
+  if (!m) return null;
+  return { label: m[1].trim(), text: m[2].trim().replace(/^[""“”]|[""“”]$/g, "") };
+}
+
+/** **texto** em negrito inline no corpo */
+function parseBoldInline(text: string): { text: string; bold: boolean }[] {
+  return text.split(/(\*\*[^*]+\*\*)/).map((p) => {
+    if (p.startsWith("**") && p.endsWith("**")) return { text: p.slice(2, -2), bold: true };
+    return { text: p, bold: false };
+  });
+}
+
+/** Renderiza chips + quote card — reutilizado em vários layouts */
+function RichExtras({
+  chips,
+  quoteCard,
+  isDark,
+  primary,
+  gap = 6,
+}: {
+  chips: string[];
+  quoteCard: { label: string; text: string } | null;
+  isDark: boolean;
+  primary: string;
+  gap?: number;
+}) {
+  return (
+    <>
+      {chips.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: gap }}>
+          {chips.map((c, i) => (
+            <span
+              key={i}
+              style={{
+                fontSize: 6.5,
+                padding: "2px 7px",
+                borderRadius: 99,
+                border: `1px solid ${isDark ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.22)"}`,
+                color: isDark ? "rgba(255,255,255,0.75)" : "rgba(0,0,0,0.65)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {c}
+            </span>
+          ))}
+        </div>
+      )}
+      {quoteCard && (
+        <div
+          style={{
+            marginTop: gap,
+            padding: "6px 9px",
+            borderRadius: 6,
+            background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)",
+            border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)"}`,
+          }}
+        >
+          {quoteCard.label && (
+            <div
+              style={{
+                fontSize: 6,
+                fontWeight: 700,
+                letterSpacing: 1.2,
+                textTransform: "uppercase",
+                color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)",
+                marginBottom: 3,
+              }}
+            >
+              {quoteCard.label}
+            </div>
+          )}
+          <div
+            style={{
+              fontSize: 8,
+              fontStyle: "italic",
+              fontFamily: "Georgia,serif",
+              color: isDark ? "rgba(255,255,255,0.82)" : "rgba(0,0,0,0.72)",
+              lineHeight: 1.45,
+            }}
+          >
+            &ldquo;{quoteCard.text}&rdquo;
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ── Miniatura arrastável (drag-and-drop na tira de slides) ──────────────────
 
 function SortableThumbnail({
@@ -232,6 +332,9 @@ function SlideVisual({
   const pct = ((idx + 1) / total) * 100;
   const themeId = getThemeId(body);
   const isDark = layout === "editorial" || (layout !== "light" && layout !== "feature-list" && layout !== "step-list");
+  const chips = parseChips(body);
+  const quoteCard = parseQuoteCard(body);
+  const bodySegs = parseBoldInline(text);
   const isLast = idx === total - 1;
 
   const progressBar = (
@@ -614,10 +717,13 @@ function SlideVisual({
             {slide.title}
           </div>
           {text && (
-            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", lineHeight: 1.5, overflow: "hidden", maxHeight: 50 }}>
-              {text}
+            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.55)", lineHeight: 1.5 }}>
+              {bodySegs.map((s, i) => (
+                <span key={i} style={{ fontWeight: s.bold ? 700 : 400, color: s.bold ? "#fff" : undefined }}>{s.text}</span>
+              ))}
             </div>
           )}
+          <RichExtras chips={chips} quoteCard={quoteCard} isDark={true} primary={B.primary} />
         </div>
         {progressBar}
         {swipeHint}
@@ -855,9 +961,12 @@ function SlideVisual({
           </div>
           {text && (
             <div style={{ fontSize: 9, color: "#4A3A34", lineHeight: 1.55 }}>
-              {text}
+              {bodySegs.map((s, i) => (
+                <span key={i} style={{ fontWeight: s.bold ? 700 : 400, color: s.bold ? B.darkBg : undefined }}>{s.text}</span>
+              ))}
             </div>
           )}
+          <RichExtras chips={chips} quoteCard={quoteCard} isDark={false} primary={B.primary} />
         </div>
         {progressBar}
         {swipeHint}
@@ -906,10 +1015,13 @@ function SlideVisual({
           {slide.title}
         </div>
         {text && (
-          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", lineHeight: 1.55, overflow: "hidden", maxHeight: 60 }}>
-            {text}
+          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.65)", lineHeight: 1.55 }}>
+            {bodySegs.map((s, i) => (
+              <span key={i} style={{ fontWeight: s.bold ? 700 : 400, color: s.bold ? "#fff" : undefined }}>{s.text}</span>
+            ))}
           </div>
         )}
+        <RichExtras chips={chips} quoteCard={quoteCard} isDark={true} primary={B.primary} />
       </div>
       {progressBar}
       {swipeHint}
