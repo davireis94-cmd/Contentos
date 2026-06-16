@@ -2,13 +2,23 @@
 
 import React, { useState, useRef, useEffect, useCallback, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, ClipboardCopy, Copy, Loader2, Pencil, Send, Wand2, X } from "lucide-react";
+import { ArrowLeft, CalendarClock, Check, ClipboardCopy, Copy, Loader2, Pencil, Send, Wand2, X } from "lucide-react";
 import { DeletePieceButton } from "@/components/content/delete-piece-button";
 import { CarouselStudio } from "@/components/content/carousel-studio";
 import { stripHighlightMarks } from "@/lib/render/highlight";
+import { updatePieceDate } from "@/app/(dashboard)/calendar/actions";
 
 function stripNote(body: string): string {
   return (body ?? "").replace(/\n?\[[^\]:]+:[^\]]*\]/g, "").trim();
+}
+
+/** ISO → valor do input datetime-local (YYYY-MM-DDTHH:mm), no fuso local. */
+function isoToLocalInput(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -54,6 +64,7 @@ interface Props {
   format: string;
   status: ContentStatus;
   createdAt: string;
+  scheduledFor?: string | null;
   brandName: string | null;
   brandColors?: { hex: string; role?: string }[];
   brandHandle?: string | null;
@@ -195,6 +206,7 @@ export function ContentDetail({
   format,
   status: initialStatus,
   createdAt,
+  scheduledFor,
   brandName,
   brandColors,
   brandHandle,
@@ -208,6 +220,25 @@ export function ContentDetail({
   const [editingCaption, setEditingCaption] = useState(false);
   const [captionDraft, setCaptionDraft] = useState(output.caption);
   const [, startTransition] = useTransition();
+
+  // Agendamento (dia/hora) — grava em scheduled_for e aparece no Calendário.
+  const [schedOpen, setSchedOpen] = useState(false);
+  const [schedAt, setSchedAt] = useState<string | null>(scheduledFor ?? null);
+  const [schedVal, setSchedVal] = useState(isoToLocalInput(scheduledFor));
+  const [schedSaving, setSchedSaving] = useState(false);
+
+  async function saveSchedule(value: string | null) {
+    setSchedSaving(true);
+    try {
+      const iso = value ? new Date(value).toISOString() : null;
+      await updatePieceDate(pieceId, iso);
+      setSchedAt(iso);
+      if (iso) setStatus("scheduled");
+      setSchedOpen(false);
+    } finally {
+      setSchedSaving(false);
+    }
+  }
 
   // Chat refinement state
   type ChatMsg = { role: "user" | "assistant"; content: string };
@@ -289,7 +320,7 @@ export function ContentDetail({
   ].join("\n");
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-3xl">
+    <div className="flex flex-col gap-6 p-6 max-w-6xl">
       {/* Breadcrumb */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
@@ -331,8 +362,49 @@ export function ContentDetail({
               ))}
             </SelectContent>
           </Select>
+          <button
+            onClick={() => { setSchedVal(isoToLocalInput(schedAt)); setSchedOpen((v) => !v); }}
+            className={`flex items-center gap-1.5 rounded-md border px-2.5 h-7 text-xs font-medium transition-colors ${
+              schedAt ? "border-purple-300 bg-purple-50 text-purple-700" : "hover:bg-accent text-muted-foreground hover:text-foreground"
+            }`}
+            title="Agendar dia e hora da postagem"
+          >
+            <CalendarClock className="size-3.5" />
+            {schedAt
+              ? new Date(schedAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+              : "Agendar"}
+          </button>
         </div>
       </div>
+
+      {/* Painel de agendamento */}
+      {schedOpen && (
+        <div className="flex flex-wrap items-end gap-2 rounded-lg border bg-card px-4 py-3">
+          <div className="space-y-1">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+              Dia e hora da postagem
+            </p>
+            <Input
+              type="datetime-local"
+              value={schedVal}
+              onChange={(e) => setSchedVal(e.target.value)}
+              className="text-sm w-56"
+            />
+          </div>
+          <Button size="sm" onClick={() => void saveSchedule(schedVal || null)} disabled={schedSaving || !schedVal}>
+            {schedSaving ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <CalendarClock className="mr-1.5 size-3.5" />}
+            Agendar
+          </Button>
+          {schedAt && (
+            <Button size="sm" variant="ghost" onClick={() => void saveSchedule(null)} disabled={schedSaving}>
+              Remover agendamento
+            </Button>
+          )}
+          <p className="w-full text-[11px] text-muted-foreground">
+            O post agendado aparece no Calendário. (A publicação automática nas redes depende da conexão no “Publicar”.)
+          </p>
+        </div>
+      )}
 
       {/* Slides */}
       <section>

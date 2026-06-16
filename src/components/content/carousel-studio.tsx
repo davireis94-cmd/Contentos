@@ -992,7 +992,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
 
       <div className="flex flex-col lg:flex-row">
         {/* ── Preview panel ── */}
-        <div className="flex flex-col items-center gap-4 bg-muted/20 px-6 py-5 border-b lg:border-b-0 lg:border-r lg:w-72 shrink-0">
+        <div className="flex flex-col items-center gap-4 bg-muted/20 px-6 py-5 border-b lg:border-b-0 lg:border-r lg:w-[440px] shrink-0">
           {/* Navigation */}
           <div className="flex items-center justify-between w-full">
             <button
@@ -1014,12 +1014,24 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
             </button>
           </div>
 
-          {/* Slide visual — fixed 4:5 aspect, 216px wide */}
+          {/* Slide visual — base 216x270 escalada p/ ~384px (fontes proporcionais) */}
           <div
             className="rounded-lg overflow-hidden shadow-lg border border-border/50"
-            style={{ width: 216, height: 270 }}
+            style={{ width: 384, height: 480, position: "relative" }}
           >
-            <SlideVisual slide={currentSlide} idx={current} total={slides.length} B={B} />
+            <div
+              style={{
+                width: 216,
+                height: 270,
+                transform: "scale(1.7778)",
+                transformOrigin: "top left",
+                position: "absolute",
+                top: 0,
+                left: 0,
+              }}
+            >
+              <SlideVisual slide={currentSlide} idx={current} total={slides.length} B={B} />
+            </div>
           </div>
 
           {/* Layout label */}

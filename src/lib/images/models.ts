@@ -63,8 +63,8 @@ export const IMAGE_MODEL_DEFS: ImageModelDef[] = [
   },
   {
     key: "gemini-free",
-    label: "Gemini (grátis)",
-    hint: "Google Gemini direto — grátis, com limite diário",
+    label: "Gemini",
+    hint: "Google Gemini direto (requer billing ativo na conta Google)",
     provider: "gemini",
     replicatePath: "",
     buildInput: (prompt) => ({ prompt }),

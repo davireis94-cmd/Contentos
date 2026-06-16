@@ -32,7 +32,14 @@ async function generateImageGemini(prompt: string): Promise<GenerateImageResult>
       candidates?: { content?: { parts?: { inlineData?: { data?: string }; inline_data?: { data?: string } }[] } }[];
     };
     if (!res.ok) {
-      return { error: data?.error?.message ?? `Gemini ${res.status}` };
+      const msg = data?.error?.message ?? `Gemini ${res.status}`;
+      if (/quota|free_tier|exceeded|limit: 0/i.test(msg)) {
+        return {
+          error:
+            "A geração de imagem do Gemini não está no plano grátis (cota 0). É preciso ativar o faturamento (billing) na conta Google Cloud para usar este modelo. Enquanto isso, use Flux Dev (barato) ou Flux 1.1 Pro.",
+        };
+      }
+      return { error: msg };
     }
     const parts = data.candidates?.[0]?.content?.parts ?? [];
     const b64 = parts.map((p) => p.inlineData?.data ?? p.inline_data?.data).find(Boolean);
