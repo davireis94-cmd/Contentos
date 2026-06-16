@@ -23,7 +23,40 @@ const TONE_MOOD: Record<string, string> = {
   minimalist: "clean, minimal, lots of empty space",
 };
 
-export function buildImagePrompt(topic: string, brand: BrandImageContext): string {
+/**
+ * Modo de encaixe da imagem no slide. Muda a COMPOSIÇÃO pedida ao modelo:
+ * - bg: fundo inteiro, texto sobreposto → precisa de espaço vazio embaixo.
+ * - card-top / framed: imagem num bloco contido → assunto centralizado, sem
+ *   depender de espaço para texto (o texto fica FORA da imagem).
+ * - half: imagem ocupa metade vertical → assunto na metade que aparece.
+ */
+export type ImagePromptMode = "bg" | "card-top" | "framed" | "half" | "none";
+
+const MODE_COMPOSITION: Record<ImagePromptMode, { aspect: string; comp: string }> = {
+  "bg": {
+    aspect: "4:5 vertical",
+    comp: "Full-bleed background. Leave generous negative space in the lower third for a text overlay.",
+  },
+  "card-top": {
+    aspect: "4:3 landscape",
+    comp: "Self-contained hero image with the main subject centered and well framed; the whole image is shown inside a card (no text will overlay it).",
+  },
+  "framed": {
+    aspect: "1:1 square",
+    comp: "Self-contained, balanced square composition with the subject centered; shown inside a framed card (no text overlay).",
+  },
+  "half": {
+    aspect: "4:5 vertical",
+    comp: "Portrait or single-subject composition that reads well when only one vertical half is visible; keep the subject centered, no important detail at the far edges.",
+  },
+  "none": { aspect: "4:5 vertical", comp: "Balanced editorial composition." },
+};
+
+export function buildImagePrompt(
+  topic: string,
+  brand: BrandImageContext,
+  mode: ImagePromptMode = "bg",
+): string {
   const colors =
     brand.colors && brand.colors.length > 0
       ? brand.colors.map((c) => c.hex).slice(0, 4).join(", ")
@@ -36,16 +69,18 @@ export function buildImagePrompt(topic: string, brand: BrandImageContext): strin
     ? `Take visual cues (mood/composition, do NOT copy) from this reference style: ${[ref.mood, ref.uso_de_foto, ref.layout].filter(Boolean).join("; ")}.`
     : "";
 
+  const m = MODE_COMPOSITION[mode] ?? MODE_COMPOSITION.bg;
+
   const parts = [
-    `Editorial, magazine-quality vertical background image for a premium Instagram carousel about "${topic}".`,
+    `Editorial, magazine-quality image for a premium Instagram carousel about "${topic}".`,
     `Visual style: ${mood}, cinematic lighting, shallow depth of field, subtle film grain.`,
     `Color grading cohesive with this brand palette: ${colors}.`,
     refLine,
     brand.description ? `Brand context: ${brand.description.slice(0, 200)}.` : "",
     brand.audience ? `Aimed at: ${brand.audience}.` : "",
-    `Leave generous negative space in the lower third for a text overlay.`,
+    m.comp,
     `Absolutely no text, no words, no letters, no typography, no logos, no watermarks.`,
-    `High-end, tasteful, 4:5 vertical composition.`,
+    `High-end, tasteful, ${m.aspect} composition.`,
   ];
 
   return parts.filter(Boolean).join(" ");

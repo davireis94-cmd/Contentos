@@ -3,6 +3,11 @@ import { NextRequest } from "next/server";
 import { getBrandFonts } from "@/lib/render/fonts";
 import { deriveBrandTokens, type BrandTokens } from "@/lib/render/brand-tokens";
 import { parseTitleHighlight } from "@/lib/render/highlight";
+import {
+  effectiveImageMode,
+  computeImageLayout,
+  type ImageMode,
+} from "@/lib/render/slide-geometry";
 
 export const runtime = "nodejs";
 
@@ -100,12 +105,169 @@ function ProgressBar({ idx, total, dark, primary }: { idx: number; total: number
   );
 }
 
+// ── Imagem contida (card-top / framed / half) — geometria compartilhada ───────
+function renderContainedImage(
+  slide: SlideInput,
+  idx: number,
+  total: number,
+  B: BrandTokens,
+  mode: ImageMode,
+) {
+  const G = computeImageLayout(mode, W, H);
+  const img = G.image!;
+  const text = cleanBody(slide.body ?? "");
+  const segs = parseTitleHighlight(slide.title);
+  const titleColor = "#1A1310";
+  const bodyColor = "#5A4A44";
+
+  const imageEl = (
+    <div
+      style={{
+        display: "flex",
+        position: "absolute",
+        left: img.x,
+        top: img.y,
+        width: img.w,
+        height: img.h,
+        borderRadius: img.radius,
+        overflow: "hidden",
+        border: img.border ? `${img.border}px solid ${B.lightBorder}` : "none",
+        backgroundColor: B.lightBorder,
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={slide.imageUrl!}
+        width={img.w}
+        height={img.h}
+        style={{ width: img.w, height: img.h, objectFit: "cover" }}
+      />
+    </div>
+  );
+
+  const textBlock = (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        position: "absolute",
+        left: G.text.x,
+        top: G.text.y,
+        width: G.text.w,
+        alignItems: G.text.align === "center" ? "center" : "flex-start",
+      }}
+    >
+      {slide.subtitle && (
+        <div
+          style={{
+            fontSize: G.font.sub,
+            fontFamily: "Inter",
+            fontWeight: 600,
+            letterSpacing: 4,
+            textTransform: "uppercase",
+            color: B.primary,
+            marginBottom: Math.round(0.018 * H),
+            textAlign: G.text.align,
+          }}
+        >
+          {slide.subtitle}
+        </div>
+      )}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: G.text.align === "center" ? "center" : "flex-start",
+        }}
+      >
+        {segs.map((s, i) => (
+          <div
+            key={i}
+            style={{
+              display: "flex",
+              fontSize: G.font.title,
+              fontFamily: s.hl ? "Playfair" : "Inter",
+              fontStyle: s.hl ? "italic" : "normal",
+              fontWeight: 700,
+              lineHeight: 1.08,
+              color: s.hl ? B.primary : titleColor,
+              marginRight: Math.round(0.014 * W),
+            }}
+          >
+            {s.text}
+          </div>
+        ))}
+      </div>
+      {text && (
+        <div style={{ display: "flex", flexDirection: "column", marginTop: Math.round(0.025 * H) }}>
+          {bodyLines(text)
+            .slice(0, mode === "half" ? 5 : 3)
+            .map((l, i) => (
+              <div
+                key={i}
+                style={{
+                  fontSize: G.font.body,
+                  fontFamily: "Inter",
+                  color: bodyColor,
+                  lineHeight: 1.5,
+                  marginBottom: 10,
+                  textAlign: G.text.align,
+                }}
+              >
+                {l}
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        position: "relative",
+        width: W,
+        height: H,
+        backgroundColor: B.lightBg,
+      }}
+    >
+      {imageEl}
+      {textBlock}
+      <div
+        style={{
+          display: "flex",
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          alignItems: "center",
+          padding: "50px 100px 70px",
+        }}
+      >
+        <div style={{ display: "flex", flex: 1, height: 10, borderRadius: 5, background: "rgba(0,0,0,0.08)" }}>
+          <div style={{ display: "flex", width: `${((idx + 1) / total) * 100}%`, height: 10, borderRadius: 5, background: B.primary }} />
+        </div>
+        <div style={{ display: "flex", marginLeft: 40, fontSize: 38, fontFamily: "Inter", fontWeight: 600, color: "rgba(0,0,0,0.3)" }}>
+          {idx + 1}/{total}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Render por layout ────────────────────────────────────────────────────────
 function renderSlide(slide: SlideInput, idx: number, total: number, B: BrandTokens) {
   const body = slide.body ?? "";
   const layout = getLayout(body);
   const text = cleanBody(body);
   const isDark = layout === "dark" || layout === "dark-photo" || layout === "gradient" || layout === "editorial";
+
+  // Imagem contida tem precedência: card no topo, emoldurada ou meia-página.
+  const imgMode = effectiveImageMode(body, !!slide.imageUrl);
+  if (slide.imageUrl && (imgMode === "card-top" || imgMode === "framed" || imgMode === "half")) {
+    return renderContainedImage(slide, idx, total, B, imgMode);
+  }
 
   // ── editorial (estilo capa / makemusicnow): título condensado gigante, palavra
   //    em destaque na cor da marca + sublinhado, sobre foto ou fundo escuro. ──

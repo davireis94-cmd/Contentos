@@ -30,6 +30,18 @@ import { updateSlides } from "@/app/(dashboard)/content/[pieceId]/actions";
 import { IMAGE_MODEL_DEFS } from "@/lib/images/models";
 import { deriveBrandTokens, type BrandTokens } from "@/lib/render/brand-tokens";
 import { parseTitleHighlight } from "@/lib/render/highlight";
+import {
+  effectiveImageMode,
+  computeImageLayout,
+  setImageModeToken,
+  getImageMode,
+  IMAGE_MODE_LABELS,
+  type ImageMode,
+} from "@/lib/render/slide-geometry";
+
+// Base do preview: 216×270 (4:5), escalada por transform. Mesma proporção do PNG.
+const PREVIEW_W = 216;
+const PREVIEW_H = 270;
 
 // ── Slide parsing helpers ──────────────────────────────────────────────────
 
@@ -189,6 +201,81 @@ function SlideVisual({
         {slide.subtitle ?? ""}
       </div>
     ) : null;
+
+  // ── imagem contida (card-top / framed / half) — geometria compartilhada ──
+  const imgMode = effectiveImageMode(body, !!slide.imageUrl);
+  if (slide.imageUrl && (imgMode === "card-top" || imgMode === "framed" || imgMode === "half")) {
+    const G = computeImageLayout(imgMode, PREVIEW_W, PREVIEW_H);
+    const img = G.image!;
+    const segs = parseTitleHighlight(slide.title);
+    return (
+      <div style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden", background: B.lightBg }}>
+        <div
+          style={{
+            position: "absolute",
+            left: img.x,
+            top: img.y,
+            width: img.w,
+            height: img.h,
+            borderRadius: img.radius,
+            overflow: "hidden",
+            border: img.border ? `${img.border}px solid ${B.lightBorder}` : "none",
+            background: B.lightBorder,
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={slide.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            left: G.text.x,
+            top: G.text.y,
+            width: G.text.w,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: G.text.align === "center" ? "center" : "flex-start",
+          }}
+        >
+          {slide.subtitle && (
+            <div style={{ fontSize: G.font.sub, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", color: B.primary, marginBottom: 4, textAlign: G.text.align }}>
+              {slide.subtitle}
+            </div>
+          )}
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: G.text.align === "center" ? "center" : "flex-start" }}>
+            {segs.map((s, i) => (
+              <span
+                key={i}
+                style={{
+                  fontSize: G.font.title,
+                  lineHeight: 1.08,
+                  fontWeight: 700,
+                  fontStyle: s.hl ? "italic" : "normal",
+                  fontFamily: s.hl ? "Georgia,serif" : "inherit",
+                  color: s.hl ? B.primary : "#1A1310",
+                  marginRight: 3,
+                }}
+              >
+                {s.text}
+              </span>
+            ))}
+          </div>
+          {text && (
+            <div style={{ fontSize: G.font.body, color: "#5A4A44", lineHeight: 1.5, marginTop: 6, textAlign: G.text.align }}>
+              {text.slice(0, imgMode === "half" ? 140 : 90)}
+            </div>
+          )}
+        </div>
+        {/* barra de progresso clara (fundo claro) */}
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 20px 14px", display: "flex", alignItems: "center", gap: 8, zIndex: 10 }}>
+          <div style={{ flex: 1, height: 2, borderRadius: 1, background: "rgba(0,0,0,0.08)", overflow: "hidden" }}>
+            <div style={{ width: `${pct}%`, height: "100%", background: B.primary }} />
+          </div>
+          <span style={{ fontSize: 9, fontWeight: 500, color: "rgba(0,0,0,0.3)" }}>{idx + 1}/{total}</span>
+        </div>
+      </div>
+    );
+  }
 
   // ── editorial (estilo capa / makemusicnow) — preview ──
   if (layout === "editorial") {
@@ -665,6 +752,9 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
   const [exporting, setExporting] = useState(false);
   const [exportIdx, setExportIdx] = useState<number | null>(null);
   const [imgModel, setImgModel] = useState(IMAGE_MODEL_DEFS[0].key);
+  // Modo de encaixe desejado para a próxima imagem gerada/enviada (quando o slide
+  // ainda não tem imagem). Com imagem, o modo vem do token [Image:] do slide.
+  const [desiredMode, setDesiredMode] = useState<ImageMode>("card-top");
   const [genImg, setGenImg] = useState(false);
   const [imgError, setImgError] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -683,12 +773,16 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
           slideIndex: currentSlide.index,
           model: imgModel,
           topic: currentSlide.title,
+          imageMode: effectiveImageMode(currentSlide.body, true) === "bg" ? desiredMode : getImageMode(currentSlide.body),
         }),
       });
       const data = await res.json();
       if (res.ok && data.imageUrl) {
+        // Aplica o modo desejado se o slide ainda não tinha token de imagem.
+        const ensureMode = (s: Slide) =>
+          getImageMode(s.body) === "none" ? setImageModeToken(s.body ?? "", desiredMode) : (s.body ?? "");
         const next = slides.map((s) =>
-          s.index === currentSlide.index ? { ...s, imageUrl: data.imageUrl as string } : s
+          s.index === currentSlide.index ? { ...s, imageUrl: data.imageUrl as string, body: ensureMode(s) } : s
         );
         onSlidesChange(next);
         startSave(() => void updateSlides(pieceId, next));
@@ -712,8 +806,10 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
       const res = await fetch("/api/images/upload", { method: "POST", body: formData });
       const data = await res.json();
       if (res.ok && data.imageUrl) {
+        const ensureMode = (s: Slide) =>
+          getImageMode(s.body) === "none" ? setImageModeToken(s.body ?? "", desiredMode) : (s.body ?? "");
         const next = slides.map((s) =>
-          s.index === currentSlide.index ? { ...s, imageUrl: data.imageUrl as string } : s
+          s.index === currentSlide.index ? { ...s, imageUrl: data.imageUrl as string, body: ensureMode(s) } : s
         );
         onSlidesChange(next);
         startSave(() => void updateSlides(pieceId, next));
@@ -844,6 +940,19 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
     persist(next);
     if (editing) setDraft((d) => ({ ...d, body: setLayoutToken(d.body ?? "", layoutKey) }));
   }
+
+  function applyImageMode(mode: ImageMode) {
+    setDesiredMode(mode);
+    // Se o slide tem imagem, troca o token na hora (preview reflete imediatamente).
+    if (currentSlide.imageUrl) {
+      const next = slides.map((s) =>
+        s.index === currentSlide.index ? { ...s, body: setImageModeToken(s.body ?? "", mode) } : s
+      );
+      persist(next);
+    }
+  }
+
+  const IMG_MODE_KEYS: ImageMode[] = ["card-top", "framed", "half", "bg"];
 
   function addSlide() {
     const insertAt = current + 1;
@@ -1240,8 +1349,33 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
                 <div className="flex items-center gap-1.5 mb-2">
                   <Image className="size-3.5 text-primary" />
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    Imagem de fundo (IA)
+                    Imagem do slide
                   </p>
+                </div>
+
+                {/* Modo de encaixe da imagem */}
+                <div className="mb-3">
+                  <p className="text-[10px] text-muted-foreground/70 mb-1.5">Como a imagem aparece</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {IMG_MODE_KEYS.map((m) => {
+                      const activeMode = currentSlide.imageUrl
+                        ? effectiveImageMode(currentSlide.body, true)
+                        : desiredMode;
+                      return (
+                        <button
+                          key={m}
+                          onClick={() => applyImageMode(m)}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+                            activeMode === m
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                          }`}
+                        >
+                          {IMAGE_MODE_LABELS[m]}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {currentSlide.imageUrl ? (

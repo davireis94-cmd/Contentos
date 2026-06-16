@@ -19,11 +19,12 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-  const { pieceId, slideIndex, model, topic } = (await request.json()) as {
+  const { pieceId, slideIndex, model, topic, imageMode } = (await request.json()) as {
     pieceId: string;
     slideIndex: number;
     model: string;
     topic?: string;
+    imageMode?: "bg" | "card-top" | "framed" | "half" | "none";
   };
 
   if (!pieceId || slideIndex == null || !model) {
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
   };
 
   const slideTopic = topic?.trim() || (piece.title as string) || "tema do post";
-  const prompt = buildImagePrompt(slideTopic, brandCtx);
+  const prompt = buildImagePrompt(slideTopic, brandCtx, imageMode ?? "bg");
 
   // Gera (Replicate ou Gemini direto)
   const result = await generateImage(model, prompt);
