@@ -50,6 +50,51 @@ async function generateImageGemini(prompt: string): Promise<GenerateImageResult>
   }
 }
 
+/**
+ * EDIÇÃO imagem→imagem (inpainting/instrução) via Nano Banana (google/nano-banana).
+ * Recebe a imagem ATUAL + uma instrução e altera só o que foi pedido, mantendo o
+ * resto — diferente de gerar do zero (texto→imagem). É o que permite "adicionar o
+ * logo do Claude aqui" sem trocar a imagem inteira.
+ */
+export async function editImage(
+  prompt: string,
+  imageUrl: string
+): Promise<GenerateImageResult> {
+  const token = process.env.REPLICATE_API_TOKEN;
+  if (!token) return { error: "REPLICATE_API_TOKEN não configurado" };
+
+  try {
+    const res = await fetch(
+      `https://api.replicate.com/v1/models/google/nano-banana/predictions`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Prefer: "wait",
+        },
+        body: JSON.stringify({ input: { prompt, image_input: [imageUrl] } }),
+      }
+    );
+
+    const data = (await res.json()) as {
+      status?: string;
+      output?: string | string[];
+      error?: string;
+      detail?: string;
+    };
+
+    if (!res.ok) return { error: data.detail ?? data.error ?? `Replicate ${res.status}` };
+    if (data.status === "failed" || data.error) return { error: data.error ?? "Falha na edição" };
+
+    const output = Array.isArray(data.output) ? data.output[0] : data.output;
+    if (!output) return { error: "Editor não retornou imagem" };
+    return { url: output };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Erro desconhecido" };
+  }
+}
+
 export async function generateImage(
   modelKey: string,
   prompt: string

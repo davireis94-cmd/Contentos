@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { buildImagePrompt, type BrandImageContext } from "@/lib/images/prompt";
 import { buildSmartImagePrompt } from "@/lib/images/smart-prompt";
-import { generateImage } from "@/lib/images/generate";
+import { generateImage, editImage } from "@/lib/images/generate";
 import { getImageModel } from "@/lib/images/models";
 import { trackUsage } from "@/lib/billing/track";
 
@@ -20,13 +20,14 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-  const { pieceId, slideIndex, model, topic, imageMode, userHint } = (await request.json()) as {
+  const { pieceId, slideIndex, model, topic, imageMode, userHint, editImageUrl } = (await request.json()) as {
     pieceId: string;
     slideIndex: number;
     model: string;
     topic?: string;
     imageMode?: "bg" | "card-top" | "framed" | "half" | "none";
     userHint?: string;
+    editImageUrl?: string; // se presente → edição imagem→imagem (mantém a foto)
   };
 
   if (!pieceId || slideIndex == null || !model) {
@@ -92,18 +93,30 @@ export async function POST(request: NextRequest) {
     body: (targetSlide.body as string | null) ?? null,
   };
 
-  // IA escreve o prompt sob medida; cai no template determinístico se falhar.
-  const smart = await buildSmartImagePrompt({
-    topic: slideTopic,
-    slide: slideContent,
-    brand: brandCtx,
-    mode: imageMode ?? "bg",
-    userHint,
-  });
-  const prompt = smart ?? buildImagePrompt(slideTopic, brandCtx, imageMode ?? "bg");
+  // Dois caminhos: EDITAR a imagem atual (mantém a foto, aplica só a instrução)
+  // ou CRIAR uma nova do zero (texto→imagem com prompt inteligente).
+  const isEdit = !!editImageUrl && !!userHint?.trim();
+  let result;
+  let billedModel: string;
 
-  // Gera (Replicate ou Gemini direto)
-  const result = await generateImage(model, prompt);
+  if (isEdit) {
+    const editPrompt = `Edit the provided image: ${userHint!.trim()}. Keep the rest of the image unchanged. No text, words, letters, logos or watermarks unless explicitly requested.`;
+    result = await editImage(editPrompt, editImageUrl!);
+    billedModel = "nano-banana-pro";
+  } else {
+    // IA escreve o prompt sob medida; cai no template determinístico se falhar.
+    const smart = await buildSmartImagePrompt({
+      topic: slideTopic,
+      slide: slideContent,
+      brand: brandCtx,
+      mode: imageMode ?? "bg",
+      userHint,
+    });
+    const prompt = smart ?? buildImagePrompt(slideTopic, brandCtx, imageMode ?? "bg");
+    result = await generateImage(model, prompt);
+    billedModel = getImageModel(model).key;
+  }
+
   if (result.error || (!result.url && !result.b64)) {
     return NextResponse.json({ error: result.error ?? "Falha na geração" }, { status: 502 });
   }
@@ -146,10 +159,10 @@ export async function POST(request: NextRequest) {
     workspaceId: piece.workspace_id,
     userId: user.id,
     operation: "image_ai",
-    model: getImageModel(model).key,
+    model: billedModel,
     units: 1,
     unitType: "image",
-    metadata: { piece_id: pieceId, slide_index: slideIndex },
+    metadata: { piece_id: pieceId, slide_index: slideIndex, edit: isEdit },
   });
 
   return NextResponse.json({ imageUrl: publicUrl });

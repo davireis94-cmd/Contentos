@@ -30,6 +30,8 @@ export const slideSchema = z.object({
   cta: z.string().optional(),
   // URL de imagem de fundo gerada por IA (Fase 2.2). Opcional e persistida no slide.
   imageUrl: z.string().optional(),
+  // Histórico de imagens já geradas/usadas neste slide (pra voltar a uma anterior).
+  imageHistory: z.array(z.string()).optional(),
 });
 
 /**

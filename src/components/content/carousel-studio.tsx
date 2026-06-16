@@ -13,6 +13,7 @@ import {
   Send,
   Trash2,
   Upload,
+  Wand2,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -776,10 +777,31 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
   // Ajuste livre do usuário pro escritor de prompt (ex.: "sem pessoas", "mesa escura").
   const [imgHint, setImgHint] = useState("");
   const [genImg, setGenImg] = useState(false);
+  const [editImgBusy, setEditImgBusy] = useState(false);
   const [imgError, setImgError] = useState("");
   const [uploading, setUploading] = useState(false);
 
   const currentSlide = slides[current];
+
+  /** Aplica nova imagem ao slide atual, empurrando a anterior pro histórico (máx 8). */
+  function applyNewImage(newUrl: string, opts?: { ensureModeWith?: ImageMode }) {
+    const next = slides.map((s) => {
+      if (s.index !== currentSlide.index) return s;
+      const prev = s.imageUrl;
+      const hist = s.imageHistory ?? [];
+      const nextHist =
+        prev && prev !== newUrl
+          ? [prev, ...hist.filter((u) => u !== prev && u !== newUrl)].slice(0, 8)
+          : hist.filter((u) => u !== newUrl);
+      const body =
+        opts?.ensureModeWith && getImageMode(s.body) === "none"
+          ? setImageModeToken(s.body ?? "", opts.ensureModeWith)
+          : (s.body ?? "");
+      return { ...s, imageUrl: newUrl, imageHistory: nextHist, body };
+    });
+    onSlidesChange(next);
+    startSave(() => void updateSlides(pieceId, next));
+  }
 
   async function handleGenerateImage() {
     setGenImg(true);
@@ -799,14 +821,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
       });
       const data = await res.json();
       if (res.ok && data.imageUrl) {
-        // Aplica o modo desejado se o slide ainda não tinha token de imagem.
-        const ensureMode = (s: Slide) =>
-          getImageMode(s.body) === "none" ? setImageModeToken(s.body ?? "", desiredMode) : (s.body ?? "");
-        const next = slides.map((s) =>
-          s.index === currentSlide.index ? { ...s, imageUrl: data.imageUrl as string, body: ensureMode(s) } : s
-        );
-        onSlidesChange(next);
-        startSave(() => void updateSlides(pieceId, next));
+        applyNewImage(data.imageUrl as string, { ensureModeWith: desiredMode });
       } else {
         setImgError(data.error ?? "Falha ao gerar imagem");
       }
@@ -814,6 +829,36 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
       setImgError("Erro de conexão");
     } finally {
       setGenImg(false);
+    }
+  }
+
+  /** Edita a imagem ATUAL (mantém a foto, aplica só a instrução) via Nano Banana. */
+  async function handleEditImage() {
+    if (!currentSlide.imageUrl || !imgHint.trim()) return;
+    setEditImgBusy(true);
+    setImgError("");
+    try {
+      const res = await fetch("/api/images/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pieceId,
+          slideIndex: currentSlide.index,
+          model: imgModel,
+          editImageUrl: currentSlide.imageUrl,
+          userHint: imgHint.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.imageUrl) {
+        applyNewImage(data.imageUrl as string);
+      } else {
+        setImgError(data.error ?? "Falha ao editar imagem");
+      }
+    } catch {
+      setImgError("Erro de conexão");
+    } finally {
+      setEditImgBusy(false);
     }
   }
 
@@ -827,13 +872,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
       const res = await fetch("/api/images/upload", { method: "POST", body: formData });
       const data = await res.json();
       if (res.ok && data.imageUrl) {
-        const ensureMode = (s: Slide) =>
-          getImageMode(s.body) === "none" ? setImageModeToken(s.body ?? "", desiredMode) : (s.body ?? "");
-        const next = slides.map((s) =>
-          s.index === currentSlide.index ? { ...s, imageUrl: data.imageUrl as string, body: ensureMode(s) } : s
-        );
-        onSlidesChange(next);
-        startSave(() => void updateSlides(pieceId, next));
+        applyNewImage(data.imageUrl as string, { ensureModeWith: desiredMode });
       } else {
         setImgError(data.error ?? "Falha ao fazer upload");
       }
@@ -844,10 +883,19 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
     }
   }
 
+  /** Volta para uma imagem do histórico (a atual vai pro histórico). */
+  function handleRestoreImage(url: string) {
+    applyNewImage(url);
+  }
+
   function handleRemoveImage() {
-    const next = slides.map((s) =>
-      s.index === currentSlide.index ? { ...s, imageUrl: undefined } : s
-    );
+    const next = slides.map((s) => {
+      if (s.index !== currentSlide.index) return s;
+      const prev = s.imageUrl;
+      const hist = s.imageHistory ?? [];
+      const nextHist = prev ? [prev, ...hist.filter((u) => u !== prev)].slice(0, 8) : hist;
+      return { ...s, imageUrl: undefined, imageHistory: nextHist };
+    });
     onSlidesChange(next);
     startSave(() => void updateSlides(pieceId, next));
   }
@@ -1423,23 +1471,39 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
                       alt=""
                       className="w-full h-24 object-cover rounded-md border"
                     />
+
+                    {/* Editar ESTA imagem (mantém a foto, aplica só o ajuste) */}
+                    <Button
+                      size="sm"
+                      className="w-full text-xs"
+                      onClick={() => void handleEditImage()}
+                      disabled={editImgBusy || genImg || uploading || !imgHint.trim()}
+                      title={!imgHint.trim() ? "Escreva o ajuste no campo acima primeiro" : "Mantém a imagem e aplica só o ajuste"}
+                    >
+                      {editImgBusy ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Wand2 className="mr-1.5 size-3.5" />}
+                      Editar esta imagem
+                    </Button>
+                    <p className="text-[10px] text-muted-foreground/70 -mt-1">
+                      Edita a imagem atual (ex.: “adiciona um símbolo do Claude”). Para uma imagem totalmente nova, use “Gerar nova”.
+                    </p>
+
                     <div className="flex gap-2">
                       <Button
                         size="sm"
                         variant="outline"
                         className="flex-1 text-xs"
                         onClick={() => void handleGenerateImage()}
-                        disabled={genImg || uploading}
+                        disabled={genImg || uploading || editImgBusy}
                       >
                         {genImg ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
-                        Gerar outra
+                        Gerar nova
                       </Button>
                       <label className="flex-1">
                         <Button
                           size="sm"
                           variant="outline"
                           className="w-full text-xs pointer-events-none"
-                          disabled={genImg || uploading}
+                          disabled={genImg || uploading || editImgBusy}
                           asChild={false}
                         >
                           {uploading ? (
@@ -1460,10 +1524,31 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
                           }}
                         />
                       </label>
-                      <Button size="sm" variant="ghost" onClick={handleRemoveImage} disabled={genImg || uploading}>
+                      <Button size="sm" variant="ghost" onClick={handleRemoveImage} disabled={genImg || uploading || editImgBusy}>
                         <X className="size-3.5" />
                       </Button>
                     </div>
+
+                    {/* Histórico de imagens deste slide */}
+                    {(currentSlide.imageHistory?.length ?? 0) > 0 && (
+                      <div>
+                        <p className="text-[10px] text-muted-foreground/70 mt-1 mb-1">Versões anteriores (clique pra voltar)</p>
+                        <div className="flex gap-1.5 overflow-x-auto pb-1">
+                          {currentSlide.imageHistory!.map((url, i) => (
+                            <button
+                              key={url + i}
+                              onClick={() => handleRestoreImage(url)}
+                              disabled={genImg || uploading || editImgBusy}
+                              className="shrink-0 rounded border hover:border-primary transition-colors disabled:opacity-50"
+                              title="Voltar para esta imagem"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={url} alt="" className="h-12 w-12 object-cover rounded" />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-2">
