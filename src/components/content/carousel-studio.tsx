@@ -338,6 +338,8 @@ function SlideVisual({
   const body = slide.body ?? "";
   const layout = getLayout(body);
   const text = cleanBody(body);
+  // Anton/Impact é visualmente ~25% maior que Georgia no mesmo px — compensamos
+  const fontScale = /anton|Impact/i.test(headingFont) ? 0.80 : 1.0;
   const pct = ((idx + 1) / total) * 100;
   const themeId = getThemeId(body);
   const isDark = layout === "editorial" || (layout !== "light" && layout !== "feature-list" && layout !== "step-list");
@@ -595,7 +597,7 @@ function SlideVisual({
               <span
                 key={i}
                 style={{
-                  fontSize: 23,
+                  fontSize: 23 * fontScale,
                   lineHeight: 1.0,
                   textTransform: "uppercase",
                   fontFamily: headingFont,
@@ -650,7 +652,7 @@ function SlideVisual({
               {slide.subtitle}
             </div>
           )}
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.12, marginBottom: 6, fontFamily: headingFont }}>
+          <div style={{ fontSize: 15 * fontScale, fontWeight: 700, color: "#fff", lineHeight: 1.12, marginBottom: 6, fontFamily: headingFont }}>
             {slide.title}
           </div>
           {text && (
@@ -725,7 +727,7 @@ function SlideVisual({
           {tag("rgba(255,255,255,0.5)")}
           <div
             style={{
-              fontSize: 15,
+              fontSize: 15 * fontScale,
               fontWeight: 700,
               color: "#fff",
               lineHeight: 1.15,
@@ -797,7 +799,7 @@ function SlideVisual({
           )}
           <div
             style={{
-              fontSize: 14,
+              fontSize: 14 * fontScale,
               fontWeight: 700,
               color: "#fff",
               lineHeight: 1.15,
@@ -854,7 +856,7 @@ function SlideVisual({
               {slide.subtitle}
             </div>
           )}
-          <div style={{ fontSize: 14, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 12, fontFamily: headingFont }}>
+          <div style={{ fontSize: 14 * fontScale, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 12, fontFamily: headingFont }}>
             {slide.title}
           </div>
           {items.length > 0
@@ -908,7 +910,7 @@ function SlideVisual({
               {slide.subtitle}
             </div>
           )}
-          <div style={{ fontSize: 14, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 12, fontFamily: headingFont }}>
+          <div style={{ fontSize: 14 * fontScale, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 12, fontFamily: headingFont }}>
             {slide.title}
           </div>
           {steps.length > 0
@@ -979,7 +981,7 @@ function SlideVisual({
             </div>
           )}
           <div style={{
-            fontSize: 15,
+            fontSize: 15 * fontScale,
             fontWeight: 700,
             color: B.darkBg,
             lineHeight: 1.15,
@@ -1047,7 +1049,7 @@ function SlideVisual({
           </div>
         )}
         <div style={{
-          fontSize: isBoldSans ? 18 : 15,
+          fontSize: (isBoldSans ? 18 : 15) * fontScale,
           fontWeight: 700,
           color: "#fff",
           lineHeight: isBoldSans ? 0.95 : 1.15,
