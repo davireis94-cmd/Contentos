@@ -2149,7 +2149,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
                             <button
                               key={url + i}
                               onClick={() => {
-                                applyNewImage(url, { ensureModeWith: getImageMode(currentSlide.body) === "none" ? "full" : undefined });
+                                applyNewImage(url, { ensureModeWith: getImageMode(currentSlide.body) === "none" ? "bg" : undefined });
                                 setLibOpen(false);
                               }}
                               className="rounded border hover:border-primary transition-colors aspect-square overflow-hidden"
