@@ -4,6 +4,18 @@ import { getSessionContext } from "@/lib/queries/context";
 import { BriefForm } from "@/components/generate/brief-form";
 import { ChatGenerator } from "@/components/generate/chat-generator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CAROUSEL_TEMPLATES } from "@/lib/templates/carousel-templates";
+import { UseTemplateButton } from "@/components/templates/use-template-button";
+import { Badge } from "@/components/ui/badge";
+
+const STYLE_PREVIEW: Record<string, { bg: string; accent: string; text: string }> = {
+  "editorial-light": { bg: "#FAF7F2", accent: "#6B1A2A", text: "#1A1310" },
+  "editorial-dark":  { bg: "#1E1E1E", accent: "#6B1A2A", text: "#ffffff" },
+  "bold-sans":       { bg: "#0A0A0A", accent: "#6B1A2A", text: "#ffffff" },
+  "revista":         { bg: "#ffffff", accent: "#111111", text: "#111111" },
+  "davi-moxoto":     { bg: "#180E0C", accent: "#6B1A2A", text: "#ffffff" },
+  "image-cards":     { bg: "#FAF7F2", accent: "#6B1A2A", text: "#1A1310" },
+};
 
 export default async function GeneratePage({
   searchParams,
@@ -42,7 +54,7 @@ export default async function GeneratePage({
   // Chat é a aba padrão. Vai pro Briefing quando há intenção estruturada
   // (recriar post, referência, tópico vindo de tendência) ou mode=brief explícito.
   const hasBriefIntent = mode === "brief" || !!ref || !!ext || !!topic || !!trendId;
-  const activeTab = mode === "chat" ? "chat" : hasBriefIntent ? "brief" : "chat";
+  const activeTab = mode === "templates" ? "templates" : mode === "chat" ? "chat" : hasBriefIntent ? "brief" : "chat";
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -53,9 +65,55 @@ export default async function GeneratePage({
 
       <Tabs defaultValue={activeTab} className="max-w-2xl">
         <TabsList>
-          <TabsTrigger value="brief">📝 Briefing</TabsTrigger>
           <TabsTrigger value="chat">✦ Chat (Lumio)</TabsTrigger>
+          <TabsTrigger value="templates">◻ Templates</TabsTrigger>
+          <TabsTrigger value="brief">📝 Briefing</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="templates" className="mt-4">
+          {defaultBrand ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {CAROUSEL_TEMPLATES.map((tpl) => {
+                const style = STYLE_PREVIEW[tpl.id] ?? STYLE_PREVIEW["editorial-light"];
+                return (
+                  <div key={tpl.id} className="rounded-xl border bg-card overflow-hidden flex flex-col">
+                    <div className="h-20 flex flex-col justify-end px-4 pb-3" style={{ background: style.bg }}>
+                      <div style={{ width: 20, height: 1.5, background: style.accent, marginBottom: 6 }} />
+                      <div style={{ fontSize: 13, fontWeight: 700, color: style.text, lineHeight: 1.1,
+                        fontFamily: tpl.id === "bold-sans" ? "Impact, sans-serif" : "Georgia, serif",
+                        textTransform: tpl.id === "bold-sans" || tpl.id === "revista" ? "uppercase" : "none",
+                      }}>
+                        {tpl.title}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 px-3 py-2.5">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs font-medium truncate">{tpl.title}</p>
+                          {tpl.badge && (
+                            <Badge className="bg-foreground text-background text-[9px] px-1.5 py-0 border-0 shrink-0">
+                              {tpl.badge}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground truncate">{tpl.description}</p>
+                      </div>
+                      <UseTemplateButton
+                        templateId={tpl.id}
+                        templateTitle={tpl.title}
+                        brands={(brands ?? []).map((b) => ({ id: b.id, name: b.name }))}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+              Crie uma marca primeiro para usar templates.
+            </div>
+          )}
+        </TabsContent>
 
         <TabsContent value="brief" className="mt-4">
           <BriefForm

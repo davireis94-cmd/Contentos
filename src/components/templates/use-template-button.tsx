@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Wand2, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Wand2, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createFromTemplate } from "@/app/(dashboard)/templates/actions";
 
 interface Props {
   templateId: string;
@@ -27,26 +28,37 @@ interface Props {
 }
 
 export function UseTemplateButton({ templateId, templateTitle, brands }: Props) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [topic, setTopic] = useState("");
+  const [angle, setAngle] = useState("");
   const [brandId, setBrandId] = useState(brands[0]?.id ?? "");
   const [error, setError] = useState("");
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
 
-  function handleUse() {
+  async function handleUse() {
     if (!brandId) { setError("Escolha uma marca."); return; }
+    if (!topic.trim()) { setError("Informe o tema do carrossel."); return; }
     setError("");
-    startTransition(async () => {
-      try {
-        await createFromTemplate(templateId, topic, brandId);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Erro inesperado");
-      }
-    });
+    setPending(true);
+    try {
+      const res = await fetch("/api/generate/from-template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId, topic: topic.trim(), angle: angle.trim() || undefined, brandId }),
+      });
+      const data = await res.json() as { pieceId?: string; error?: string };
+      if (!res.ok || !data.pieceId) throw new Error(data.error ?? "Erro ao gerar");
+      setOpen(false);
+      router.push(`/content/${data.pieceId}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro inesperado");
+      setPending(false);
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { if (!pending) setOpen(v); }}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" className="h-7 px-3 text-xs">
           <Wand2 className="mr-1 size-3" />
@@ -60,18 +72,33 @@ export function UseTemplateButton({ templateId, templateTitle, brands }: Props) 
         <div className="space-y-4 pt-1">
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-              Qual é o tema do carrossel?
+              Tema do carrossel *
             </label>
             <Input
               className="mt-1.5 text-sm"
               placeholder='Ex: "Por que você usa IA errado"'
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleUse()}
+              onKeyDown={(e) => e.key === "Enter" && !pending && void handleUse()}
               autoFocus
+              disabled={pending}
+            />
+          </div>
+
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+              Contexto extra <span className="font-normal normal-case tracking-normal">(opcional)</span>
+            </label>
+            <Textarea
+              className="mt-1.5 text-sm"
+              placeholder="Ângulo específico, público-alvo, exemplos que quer usar, tom mais sério ou leve…"
+              value={angle}
+              onChange={(e) => setAngle(e.target.value)}
+              rows={3}
+              disabled={pending}
             />
             <p className="mt-1 text-[10px] text-muted-foreground">
-              Os slides já vêm estruturados — você só edita o texto.
+              A IA usa isso para escrever o conteúdo real — não só preencher placeholder.
             </p>
           </div>
 
@@ -80,7 +107,7 @@ export function UseTemplateButton({ templateId, templateTitle, brands }: Props) 
               <label className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Marca
               </label>
-              <Select value={brandId} onValueChange={setBrandId}>
+              <Select value={brandId} onValueChange={setBrandId} disabled={pending}>
                 <SelectTrigger className="mt-1.5 text-sm h-9">
                   <SelectValue />
                 </SelectTrigger>
@@ -95,11 +122,18 @@ export function UseTemplateButton({ templateId, templateTitle, brands }: Props) 
 
           {error && <p className="text-xs text-destructive">{error}</p>}
 
-          <Button className="w-full" onClick={handleUse} disabled={pending}>
-            {pending
-              ? <><Loader2 className="mr-1.5 size-4 animate-spin" /> Criando slides…</>
-              : <><Wand2 className="mr-1.5 size-4" /> Criar e abrir no Studio</>
-            }
+          <Button className="w-full" onClick={() => void handleUse()} disabled={pending}>
+            {pending ? (
+              <>
+                <Loader2 className="mr-1.5 size-4 animate-spin" />
+                Gerando conteúdo com IA…
+              </>
+            ) : (
+              <>
+                <Sparkles className="mr-1.5 size-4" />
+                Gerar e abrir no Studio
+              </>
+            )}
           </Button>
         </div>
       </DialogContent>

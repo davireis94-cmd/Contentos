@@ -123,9 +123,9 @@ function SlideCard({
     setEditing(false);
   }
 
-  const copyText = [stripHighlightMarks(slide.title), slide.subtitle, slide.body, slide.cta]
+  const copyText = [stripHighlightMarks(slide.title), slide.subtitle, stripNote(slide.body ?? ""), slide.cta]
     .filter(Boolean)
-    .join("\n"); // body kept with production note for copy
+    .join("\n");
 
   return (
     <Card className={isHook ? "border-primary/20 bg-primary/[0.03]" : undefined}>
@@ -428,7 +428,7 @@ export function ContentDetail({
   const fullCopy = [
     ...slides.map((s, i) => {
       const header = i === 0 ? "SLIDE 1 — HOOK" : `SLIDE ${i + 1}`;
-      return [header, s.title, s.subtitle ?? null, s.body, s.cta ? `→ ${s.cta}` : null]
+      return [header, s.title, s.subtitle ?? null, stripNote(s.body ?? ""), s.cta ? `→ ${s.cta}` : null]
         .filter(Boolean)
         .join("\n");
     }),
