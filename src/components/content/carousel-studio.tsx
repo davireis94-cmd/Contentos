@@ -1102,6 +1102,9 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
   const [exporting, setExporting] = useState(false);
   const [exportIdx, setExportIdx] = useState<number | null>(null);
   const [imgModel, setImgModel] = useState(IMAGE_MODEL_DEFS[0].key);
+  const [libImages, setLibImages] = useState<string[]>([]);
+  const [libLoading, setLibLoading] = useState(false);
+  const [libOpen, setLibOpen] = useState(false);
   // Modo de encaixe desejado para a próxima imagem gerada/enviada (quando o slide
   // ainda não tem imagem). Com imagem, o modo vem do token [Image:] do slide.
   const [desiredMode, setDesiredMode] = useState<ImageMode>("card-top");
@@ -1134,6 +1137,21 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
     });
     onSlidesChange(next);
     startSave(() => void updateSlides(pieceId, next));
+  }
+
+  async function openLibrary() {
+    setLibOpen(true);
+    if (libImages.length > 0) return;
+    setLibLoading(true);
+    try {
+      const res = await fetch("/api/images/library");
+      const data = await res.json();
+      setLibImages(data.images ?? []);
+    } catch {
+      // silent
+    } finally {
+      setLibLoading(false);
+    }
   }
 
   async function handleGenerateImage() {
@@ -2104,6 +2122,46 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
                   </div>
                 )}
                 {imgError && <p className="text-[11px] text-destructive mt-2">{imgError}</p>}
+
+                {/* Biblioteca de imagens geradas */}
+                <div className="mt-3 border-t pt-3">
+                  <button
+                    className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors w-full"
+                    onClick={() => libOpen ? setLibOpen(false) : void openLibrary()}
+                  >
+                    <Image className="size-3" />
+                    Imagens geradas com IA
+                    <span className="ml-auto text-[10px]">{libOpen ? "▲" : "▼"}</span>
+                  </button>
+                  {libOpen && (
+                    <div className="mt-2">
+                      {libLoading ? (
+                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground py-2">
+                          <Loader2 className="size-3 animate-spin" /> Carregando…
+                        </div>
+                      ) : libImages.length === 0 ? (
+                        <p className="text-[11px] text-muted-foreground py-2">Nenhuma imagem gerada ainda.</p>
+                      ) : (
+                        <div className="grid grid-cols-3 gap-1.5 max-h-52 overflow-y-auto pr-0.5">
+                          {libImages.map((url, i) => (
+                            <button
+                              key={url + i}
+                              onClick={() => {
+                                applyNewImage(url, { ensureModeWith: getImageMode(currentSlide.body) === "none" ? "full" : undefined });
+                                setLibOpen(false);
+                              }}
+                              className="rounded border hover:border-primary transition-colors aspect-square overflow-hidden"
+                              title="Usar esta imagem"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={url} alt="" className="w-full h-full object-cover" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

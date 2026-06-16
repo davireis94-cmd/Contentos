@@ -106,10 +106,7 @@ export default async function TemplatesPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between mt-auto pt-1">
-                  <div className="flex gap-2 text-[10px] text-muted-foreground">
-                    <span>{tpl.slideCount} slides</span>
-                  </div>
+                <div className="flex items-center justify-end mt-auto pt-1">
                   <UseTemplateButton
                     templateId={tpl.id}
                     templateTitle={tpl.title}
