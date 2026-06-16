@@ -1,153 +1,126 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { LayoutGrid, Wand2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
 import { getSessionContext } from "@/lib/queries/context";
+import { CAROUSEL_TEMPLATES } from "@/lib/templates/carousel-templates";
+import { UseTemplateButton } from "@/components/templates/use-template-button";
+import { Badge } from "@/components/ui/badge";
 
-const BUILTIN_TEMPLATES = [
-  {
-    id: "authority-carousel",
-    title: "Carrossel de Autoridade",
-    description: "5 insights práticos sobre um tema do seu nicho. Gancho forte + entrega real em cada slide.",
-    format: "carousel",
-    objective: "educate",
-    slides: 7,
-    badge: "Popular",
-  },
-  {
-    id: "storytelling-reel",
-    title: "Storytelling para Reels",
-    description: "História pessoal que conecta com a transformação do cliente. Do problema à solução.",
-    format: "reel",
-    objective: "inspire",
-    slides: 8,
-    badge: null,
-  },
-  {
-    id: "offer-carousel",
-    title: "Apresentação de Oferta",
-    description: "Apresenta o produto/serviço, supera objeções e termina com CTA irresistível.",
-    format: "carousel",
-    objective: "sell",
-    slides: 9,
-    badge: null,
-  },
-  {
-    id: "tips-single",
-    title: "Dica Rápida (Single)",
-    description: "Um insight poderoso em formato de post único. Direto ao ponto, fácil de salvar.",
-    format: "single",
-    objective: "educate",
-    slides: 1,
-    badge: null,
-  },
-  {
-    id: "engage-question",
-    title: "Pergunta de Engajamento",
-    description: "Post que provoca reflexão e convida o público a comentar. Gera conversas reais.",
-    format: "single",
-    objective: "engage",
-    slides: 1,
-    badge: "Alto engajamento",
-  },
-  {
-    id: "behind-scenes",
-    title: "Bastidores — Stories",
-    description: "Sequência de stories mostrando o processo interno, a rotina ou os bastidores da marca.",
-    format: "story",
-    objective: "engage",
-    slides: 6,
-    badge: null,
-  },
-];
-
-const FORMAT_LABELS: Record<string, string> = {
-  carousel: "Carrossel",
-  reel: "Reels",
-  story: "Stories",
-  single: "Single",
-};
-
-const OBJECTIVE_LABELS: Record<string, string> = {
-  educate: "Educar",
-  engage: "Engajar",
-  sell: "Vender",
-  inspire: "Inspirar",
-};
-
-const FORMAT_COLORS: Record<string, string> = {
-  carousel: "bg-blue-500/10 text-blue-700 border-blue-200",
-  reel: "bg-purple-500/10 text-purple-700 border-purple-200",
-  story: "bg-orange-500/10 text-orange-700 border-orange-200",
-  single: "bg-green-500/10 text-green-700 border-green-200",
+const STYLE_PREVIEW: Record<string, { bg: string; accent: string; text: string; label: string }> = {
+  "editorial-light": { bg: "#FAF7F2", accent: "#6B1A2A", text: "#1A1310", label: "Creme · serif" },
+  "editorial-dark":  { bg: "#1E1E1E", accent: "#6B1A2A", text: "#ffffff", label: "Grafite · serif" },
+  "bold-sans":       { bg: "#0A0A0A", accent: "#6B1A2A", text: "#ffffff", label: "Preto · Anton" },
+  "revista":         { bg: "#ffffff", accent: "#111111", text: "#111111", label: "Branco · uppercase" },
+  "image-cards":     { bg: "#FAF7F2", accent: "#6B1A2A", text: "#1A1310", label: "Claro · foto no topo" },
 };
 
 export default async function TemplatesPage() {
-  const { user, workspace } = await getSessionContext();
+  const { user, workspace, supabase } = await getSessionContext();
   if (!user) redirect("/login");
   if (!workspace) redirect("/onboarding");
+
+  const { data: brands } = await supabase
+    .from("brands")
+    .select("id, name")
+    .eq("workspace_id", workspace.id)
+    .order("name");
+
+  const brandList = (brands ?? []).map((b) => ({ id: b.id, name: b.name }));
 
   return (
     <div className="flex flex-col gap-6 p-6">
       <PageHeader
         title="Templates"
-        description="Estruturas prontas para acelerar a criação. Selecione um e gere o conteúdo no seu tom de voz."
+        description="Estruturas prontas baseadas nos melhores carrosséis de referência. Escolha, coloque o tema e edite."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {BUILTIN_TEMPLATES.map((tpl) => (
-          <Card key={tpl.id} className="group flex flex-col transition-shadow hover:shadow-md">
-            <CardContent className="flex flex-1 flex-col gap-3 p-4">
-              <div className="flex items-start justify-between gap-2">
-                <Badge
-                  variant="outline"
-                  className={`text-[10px] border ${FORMAT_COLORS[tpl.format]}`}
-                >
-                  {FORMAT_LABELS[tpl.format]}
-                </Badge>
-                {tpl.badge && (
-                  <Badge className="bg-foreground text-background text-[10px] border-0">
-                    {tpl.badge}
-                  </Badge>
-                )}
-              </div>
-
-              <div className="flex-1 space-y-1.5">
-                <p className="text-sm font-medium leading-snug">{tpl.title}</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {tpl.description}
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between pt-1">
-                <div className="flex gap-2 text-[10px] text-muted-foreground">
-                  <span>{OBJECTIVE_LABELS[tpl.objective]}</span>
-                  <span>·</span>
-                  <span>{tpl.slides} {tpl.slides === 1 ? "slide" : "slides"}</span>
+        {CAROUSEL_TEMPLATES.map((tpl) => {
+          const style = STYLE_PREVIEW[tpl.id] ?? STYLE_PREVIEW["editorial-light"];
+          return (
+            <div
+              key={tpl.id}
+              className="rounded-xl border bg-card overflow-hidden flex flex-col transition-shadow hover:shadow-md"
+            >
+              {/* Preview visual — mini-slide da capa */}
+              <div
+                className="h-36 flex flex-col justify-end px-5 pb-4 relative overflow-hidden"
+                style={{ background: style.bg }}
+              >
+                {/* Linha de acento */}
+                <div style={{ width: 24, height: 2, background: style.accent, marginBottom: 8 }} />
+                {/* Subtítulo */}
+                <div style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  letterSpacing: 2,
+                  textTransform: "uppercase",
+                  color: style.accent,
+                  marginBottom: 4,
+                  opacity: 0.8,
+                }}>
+                  {tpl.reference}
                 </div>
-                <Button asChild size="sm" variant="outline" className="h-7 px-3 text-xs">
-                  <Link
-                    href={`/generate?template=${tpl.id}&format=${tpl.format}&objective=${tpl.objective}&slides=${tpl.slides}`}
-                  >
-                    <Wand2 className="mr-1 size-3" />
-                    Usar
-                  </Link>
-                </Button>
+                {/* Título simulado */}
+                <div style={{
+                  fontSize: tpl.id === "bold-sans" ? 18 : 15,
+                  fontWeight: 700,
+                  color: style.text,
+                  lineHeight: 1.1,
+                  fontFamily: tpl.id === "bold-sans" ? "Impact, sans-serif" : "Georgia, serif",
+                  textTransform: tpl.id === "bold-sans" || tpl.id === "revista" ? "uppercase" : "none",
+                  maxWidth: "85%",
+                }}>
+                  {tpl.title}
+                </div>
+                {/* Barra progresso */}
+                <div style={{
+                  position: "absolute", bottom: 0, left: 0, right: 0,
+                  padding: "8px 20px 10px",
+                  display: "flex", alignItems: "center", gap: 6,
+                }}>
+                  <div style={{ flex: 1, height: 1.5, borderRadius: 1, background: style.text === "#ffffff" ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.1)" }}>
+                    <div style={{ width: "14%", height: "100%", background: style.accent }} />
+                  </div>
+                  <span style={{ fontSize: 7, color: style.text === "#ffffff" ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.3)" }}>
+                    1/{tpl.slideCount}
+                  </span>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
 
-      <div className="rounded-lg border border-dashed p-5 text-center">
-        <LayoutGrid className="mx-auto mb-2 size-6 text-muted-foreground/40" />
-        <p className="text-sm font-medium">Templates personalizados</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Salve seus próprios formatos reutilizáveis — disponível na V2.
-        </p>
+              {/* Info + botão */}
+              <div className="flex flex-1 flex-col gap-3 p-4">
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <p className="text-sm font-semibold leading-tight">{tpl.title}</p>
+                      {tpl.badge && (
+                        <Badge className="bg-foreground text-background text-[9px] px-1.5 py-0 border-0 shrink-0">
+                          {tpl.badge}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      {tpl.description}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between mt-auto pt-1">
+                  <div className="flex gap-2 text-[10px] text-muted-foreground">
+                    <span>{style.label}</span>
+                    <span>·</span>
+                    <span>{tpl.slideCount} slides</span>
+                  </div>
+                  <UseTemplateButton
+                    templateId={tpl.id}
+                    templateTitle={tpl.title}
+                    brands={brandList}
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
