@@ -256,10 +256,23 @@ function SortableThumbnail({
         className={`shrink-0 rounded overflow-hidden border-2 transition-colors ${
           isCurrent ? "border-primary" : "border-transparent hover:border-border"
         }`}
-        style={{ width: 44, height: 55, display: "block" }}
+        style={{ width: 44, height: 55, display: "block", position: "relative" }}
         title={`Slide ${idx + 1}: ${slide.title}`}
       >
-        <SlideVisual slide={slide} idx={idx} total={total} B={B} headingFont={headingFont} />
+        {/* slide cheio (216×270) reduzido p/ caber — sem isto a miniatura mostrava só o canto ampliado */}
+        <div
+          style={{
+            width: PREVIEW_W,
+            height: PREVIEW_H,
+            transform: `scale(${44 / PREVIEW_W})`,
+            transformOrigin: "top left",
+            position: "absolute",
+            top: 0,
+            left: 0,
+          }}
+        >
+          <SlideVisual slide={slide} idx={idx} total={total} B={B} headingFont={headingFont} />
+        </div>
       </button>
     </div>
   );
@@ -617,8 +630,20 @@ function SlideVisual({
     );
   }
 
-  // ── imagem IA de fundo (preview) ──
-  if (slide.imageUrl) {
+  // ── imagem IA de FUNDO — o layout escolhido controla overlay/cor/posição ──
+  // (editorial já foi tratado acima com sua própria arte; aqui caem dark/light/
+  //  gradient/dark-photo). Antes este bloco ignorava o layout — por isso "mexer no
+  //  layout não mudava nada" em slides com imagem. Agora cada layout muda de fato.
+  if (slide.imageUrl && effectiveImageMode(body, true) === "bg") {
+    const isLight = layout === "light";
+    const isGradient = layout === "gradient";
+    const titleSegs = parseTitleHighlight(slide.title);
+    const overlay = isLight
+      ? "linear-gradient(to bottom,rgba(250,247,242,0.25) 0%,rgba(250,247,242,0.80) 55%,rgba(250,247,242,0.97) 100%)"
+      : "linear-gradient(to bottom,rgba(24,14,12,0.05) 0%,rgba(24,14,12,0.45) 55%,rgba(24,14,12,0.93) 100%)";
+    const titleColor = isLight ? "#1A1310" : "#fff";
+    const subColor = isLight ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.7)";
+    const bodyColor = isLight ? "rgba(0,0,0,0.65)" : "rgba(255,255,255,0.82)";
     return (
       <div
         style={{
@@ -628,37 +653,66 @@ function SlideVisual({
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
-          justifyContent: "flex-end",
+          justifyContent: isGradient ? "center" : "flex-end",
           background: B.darkBg,
         }}
       >
-        <TopBar themeId={themeId} isDark={true} handle={handle} idx={idx} total={total} />
+        <TopBar themeId={themeId} isDark={!isLight} handle={handle} idx={idx} total={total} />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={slide.imageUrl}
           alt=""
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
         />
+        <div style={{ position: "absolute", inset: 0, background: overlay }} />
+        {isGradient && (
+          <div style={{ position: "absolute", inset: 0, background: B.gradient, opacity: 0.72 }} />
+        )}
         <div
           style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "linear-gradient(to bottom,rgba(24,14,12,0.05) 0%,rgba(24,14,12,0.45) 55%,rgba(24,14,12,0.92) 100%)",
+            position: "relative",
+            zIndex: 2,
+            padding: isGradient ? "0 20px" : "0 20px 40px",
+            textAlign: isGradient ? "center" : "left",
           }}
-        />
-        <div style={{ position: "relative", zIndex: 2, padding: "0 20px 40px" }}>
+        >
           {slide.subtitle && (
-            <div style={{ fontSize: 7, fontWeight: 600, letterSpacing: "1.5px", textTransform: "uppercase", color: "rgba(255,255,255,0.7)", marginBottom: 8 }}>
+            <div style={{ fontSize: 7, fontWeight: 600, letterSpacing: "1.5px", textTransform: "uppercase", color: isGradient ? "rgba(255,255,255,0.72)" : subColor, marginBottom: 8 }}>
               {slide.subtitle}
             </div>
           )}
-          <div style={{ fontSize: 15 * fontScale, fontWeight: 700, color: "#fff", lineHeight: 1.12, marginBottom: 6, fontFamily: headingFont }}>
-            {slide.title}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0 5px", justifyContent: isGradient ? "center" : "flex-start", marginBottom: 6 }}>
+            {titleSegs.map((s, i) => (
+              <span
+                key={i}
+                style={{
+                  fontSize: 15 * fontScale,
+                  fontWeight: 700,
+                  lineHeight: 1.12,
+                  fontFamily: headingFont,
+                  color: s.hl ? (isLight ? B.primary : B.vivid) : (isGradient ? "#fff" : titleColor),
+                }}
+              >
+                {s.text}
+              </span>
+            ))}
           </div>
-          {text && (
-            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.8)", lineHeight: 1.5, overflow: "hidden", maxHeight: 50 }}>
+          {text && !isGradient && (
+            <div style={{
+              fontSize: 9,
+              color: bodyColor,
+              lineHeight: 1.5,
+              display: "-webkit-box",
+              WebkitBoxOrient: "vertical" as const,
+              WebkitLineClamp: 4,
+              overflow: "hidden",
+            }}>
               {text}
+            </div>
+          )}
+          {isGradient && slide.cta && (
+            <div style={{ display: "inline-block", marginTop: 10, padding: "7px 18px", background: B.lightBg, color: B.dark, borderRadius: 20, fontSize: 9, fontWeight: 700 }}>
+              {slide.cta}
             </div>
           )}
         </div>
