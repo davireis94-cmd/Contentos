@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
+import html2canvas from "html2canvas";
 import {
   DndContext,
   closestCenter,
@@ -1095,7 +1096,7 @@ interface Props {
   brandFontBody?: string | null;
 }
 
-export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, brandHandle, brandFontHeading, brandFontBody }: Props) {
+export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, brandHandle, brandFontHeading }: Props) {
   const B = deriveBrandTokens(brandColors, brandHandle);
   const [current, setCurrent] = useState(0);
   const [editing, setEditing] = useState(false);
@@ -1118,6 +1119,8 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
   const [uploading, setUploading] = useState(false);
   // Aba ativa do inspetor (divulgação progressiva — menos poluição).
   const [panelTab, setPanelTab] = useState<"texto" | "imagem" | "estilo">("imagem");
+  // Nós escondidos em tamanho real (216×270) usados p/ exportar PNG via html2canvas.
+  const exportRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const currentSlide = slides[current];
 
@@ -1256,20 +1259,40 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
   async function handleExportPng() {
     setExporting(true);
     try {
+      // Garante que todas as imagens dos nós de export carregaram antes de capturar.
+      const allImgs = exportRefs.current
+        .filter(Boolean)
+        .flatMap((node) => Array.from(node!.querySelectorAll("img")));
+      await Promise.all(
+        allImgs.map((img) =>
+          img.complete && img.naturalWidth > 0
+            ? Promise.resolve()
+            : new Promise<void>((resolve) => {
+                img.addEventListener("load", () => resolve(), { once: true });
+                img.addEventListener("error", () => resolve(), { once: true });
+              })
+        )
+      );
+
+      // PREVIEW_W=216 → escala 5 = 1080px de largura (tamanho cheio do Instagram).
+      const SCALE = 1080 / PREVIEW_W;
+
       for (let i = 0; i < slides.length; i++) {
+        const node = exportRefs.current[i];
+        if (!node) continue;
         setExportIdx(i);
-        const res = await fetch("/api/render/slide", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            slide: slides[i],
-            idx: i,
-            total: slides.length,
-            brand: { colors: brandColors, handle: brandHandle, fontHeading: brandFontHeading, fontBody: brandFontBody },
-          }),
+        const canvas = await html2canvas(node, {
+          scale: SCALE,
+          useCORS: true,
+          backgroundColor: null,
+          logging: false,
+          width: PREVIEW_W,
+          height: PREVIEW_H,
         });
-        if (!res.ok) continue;
-        const blob = await res.blob();
+        const blob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob((b) => resolve(b), "image/png")
+        );
+        if (!blob) continue;
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.download = `slide-${String(i + 1).padStart(2, "0")}.png`;
@@ -2169,6 +2192,26 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
             </div>
           )}
         </div>
+      </div>
+
+      {/* Nós escondidos em tamanho real (216×270) — fonte única do PNG via html2canvas.
+          Renderizam o MESMO SlideVisual da tela, então o download é idêntico ao preview. */}
+      <div aria-hidden style={{ position: "fixed", left: -99999, top: 0, pointerEvents: "none", opacity: 0 }}>
+        {slides.map((s, i) => (
+          <div
+            key={s.index}
+            ref={(el) => { exportRefs.current[i] = el; }}
+            style={{ width: PREVIEW_W, height: PREVIEW_H, overflow: "hidden" }}
+          >
+            <SlideVisual
+              slide={s}
+              idx={i}
+              total={slides.length}
+              B={B}
+              headingFont={resolveFontFamily(getFontKey(s.body), brandFontHeading)}
+            />
+          </div>
+        ))}
       </div>
     </div>
   );
