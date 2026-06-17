@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
 import { toPng } from "html-to-image";
 import {
   DndContext,
@@ -388,6 +388,13 @@ function SlideVisual({
     : undefined;
   // Anton/Impact é visualmente ~25% maior que Georgia no mesmo px — compensamos
   const fontScale = /anton|Impact/i.test(headingFont) ? 0.80 : 1.0;
+  // resolveFontFamily só produz aspas iniciais no caminho "fonte da marca".
+  // Nesse caso damos IMPACTO ao título (caixa-alta + tracking + peso 800),
+  // resolvendo o "Playfair fraco" vs @brandsdecoded. Mesmo estilo na tela e no PNG.
+  const isBrandFont = headingFont.trim().startsWith('"');
+  const brandTitleStyle = isBrandFont
+    ? { textTransform: "uppercase" as const, letterSpacing: "0.02em", fontWeight: 800 as const }
+    : {};
   // Encolhe título longo p/ caber na caixa (some o "comendo as letras")
   const tFit = titleFit(slide.title);
   const bFit = bodyFit(text);
@@ -654,6 +661,7 @@ function SlideVisual({
                   fontFamily: headingFont,
                   color: s.hl ? B.vivid : "#fff",
                   borderBottom: s.hl ? `2px solid ${B.vivid}` : "none",
+                  ...brandTitleStyle,
                 }}
               >
                 {s.text}
@@ -728,6 +736,7 @@ function SlideVisual({
                   lineHeight: 1.12,
                   fontFamily: headingFont,
                   color: s.hl ? (isLight ? B.primary : B.vivid) : (isGradient ? "#fff" : titleColor),
+                  ...brandTitleStyle,
                 }}
               >
                 {s.text}
@@ -825,6 +834,7 @@ function SlideVisual({
               lineHeight: 1.15,
               marginBottom: 6,
               fontFamily: headingFont,
+              ...brandTitleStyle,
             }}
           >
             {slide.title}
@@ -897,6 +907,7 @@ function SlideVisual({
               lineHeight: 1.15,
               marginBottom: 8,
               fontFamily: headingFont,
+              ...brandTitleStyle,
             }}
           >
             {slide.title}
@@ -948,7 +959,7 @@ function SlideVisual({
               {slide.subtitle}
             </div>
           )}
-          <div style={{ fontSize: 14 * fontScale * tFit, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 12, fontFamily: headingFont }}>
+          <div style={{ fontSize: 14 * fontScale * tFit, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 12, fontFamily: headingFont, ...brandTitleStyle }}>
             {slide.title}
           </div>
           {items.length > 0
@@ -1002,7 +1013,7 @@ function SlideVisual({
               {slide.subtitle}
             </div>
           )}
-          <div style={{ fontSize: 14 * fontScale * tFit, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 12, fontFamily: headingFont }}>
+          <div style={{ fontSize: 14 * fontScale * tFit, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 12, fontFamily: headingFont, ...brandTitleStyle }}>
             {slide.title}
           </div>
           {steps.length > 0
@@ -1079,6 +1090,7 @@ function SlideVisual({
             lineHeight: 1.15,
             marginBottom: 8,
             fontFamily: headingFont,
+            ...brandTitleStyle,
             textTransform: isRevista ? "uppercase" : "none",
             letterSpacing: isRevista ? "0.3px" : "normal",
           }}>
@@ -1149,6 +1161,7 @@ function SlideVisual({
           fontFamily: headingFont,
           textTransform: isBoldSans ? "uppercase" : "none",
           letterSpacing: isEditorialDark ? "-0.3px" : "normal",
+          ...brandTitleStyle,
         }}>
           {slide.title}
         </div>
@@ -1215,6 +1228,23 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
   const exportRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const currentSlide = slides[current];
+
+  // Carrega a fonte de TÍTULO da marca (ex.: Playfair Display) no navegador com
+  // pesos pesados (700/800/900). Sem isso o preview E o PNG (html-to-image) caíam
+  // no fallback system-ui — por isso a fonte da marca parecia "fraca".
+  useEffect(() => {
+    const fam = brandFontHeading?.trim();
+    if (!fam) return;
+    const id = `brandfont-${fam.replace(/\s+/g, "-")}`;
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(
+      fam
+    )}:wght@400;500;600;700;800;900&display=swap`;
+    document.head.appendChild(link);
+  }, [brandFontHeading]);
 
   /** Aplica nova imagem ao slide atual, empurrando a anterior pro histórico (máx 8). */
   function applyNewImage(newUrl: string, opts?: { ensureModeWith?: ImageMode }) {
