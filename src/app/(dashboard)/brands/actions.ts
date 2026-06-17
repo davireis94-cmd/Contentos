@@ -91,6 +91,15 @@ export async function updateIdentity(formData: FormData) {
 
   const colors = JSON.parse((formData.get("colors") as string) || "[]") as string[];
 
+  // Preserva os campos do avatar (foto de perfil + enquadramento), que são salvos
+  // por outra action (updateAvatar) — senão reescrever o identity aqui apagaria.
+  const { data: existing } = await supabase
+    .from("brands")
+    .select("identity")
+    .eq("id", brandId)
+    .single();
+  const prev = (existing?.identity ?? {}) as Record<string, unknown>;
+
   const { error } = await supabase
     .from("brands")
     .update({
@@ -101,11 +110,44 @@ export async function updateIdentity(formData: FormData) {
         colors,
         font_heading: ((formData.get("fontHeading") as string) ?? "").trim() || null,
         font_body: ((formData.get("fontBody") as string) ?? "").trim() || null,
+        avatar_url: prev.avatar_url ?? null,
+        avatar_zoom: prev.avatar_zoom ?? 1,
+        avatar_x: prev.avatar_x ?? 50,
+        avatar_y: prev.avatar_y ?? 50,
       },
     })
     .eq("id", brandId);
 
   if (!error) await recomputeScore(brandId);
+  revalidatePath(`/brands/${brandId}`);
+}
+
+/** Salva a foto de perfil (avatar) e seu enquadramento (zoom + posição x/y). */
+export async function updateAvatar(
+  brandId: string,
+  avatar: { url: string | null; zoom: number; x: number; y: number }
+) {
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("brands")
+    .select("identity")
+    .eq("id", brandId)
+    .single();
+  const prev = (existing?.identity ?? {}) as Record<string, unknown>;
+
+  await supabase
+    .from("brands")
+    .update({
+      identity: {
+        ...prev,
+        avatar_url: avatar.url,
+        avatar_zoom: avatar.zoom,
+        avatar_x: avatar.x,
+        avatar_y: avatar.y,
+      },
+    })
+    .eq("id", brandId);
+
   revalidatePath(`/brands/${brandId}`);
 }
 

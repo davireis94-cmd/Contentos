@@ -37,14 +37,26 @@ export default async function ContentPiecePage({
   const slides = Array.isArray(piece.slides) ? piece.slides : [];
   const brandObj = Array.isArray(piece.brands) ? piece.brands[0] : piece.brands;
   const brandName = (brandObj as { name: string } | null)?.name ?? null;
-  const brandIdentity = ((brandObj as { identity?: { colors?: { hex: string; role?: string }[]; font_heading?: string; font_body?: string } } | null)?.identity ?? {}) as {
+  const brandIdentity = ((brandObj as { identity?: { colors?: { hex: string; role?: string }[]; font_heading?: string; font_body?: string; avatar_url?: string; avatar_zoom?: number; avatar_x?: number; avatar_y?: number } } | null)?.identity ?? {}) as {
     colors?: { hex: string; role?: string }[];
     font_heading?: string;
     font_body?: string;
+    avatar_url?: string;
+    avatar_zoom?: number;
+    avatar_x?: number;
+    avatar_y?: number;
   };
   const brandColors = Array.isArray(brandIdentity.colors) ? brandIdentity.colors : [];
   const brandFontHeading = brandIdentity.font_heading ?? null;
   const brandFontBody = brandIdentity.font_body ?? null;
+  const brandAvatar = brandIdentity.avatar_url
+    ? {
+        url: brandIdentity.avatar_url,
+        zoom: brandIdentity.avatar_zoom ?? 1,
+        x: brandIdentity.avatar_x ?? 50,
+        y: brandIdentity.avatar_y ?? 50,
+      }
+    : null;
 
   // Handle do Instagram conectado (para o rodapé dos slides) — não derruba a página se falhar
   let brandHandle: string | null = null;
@@ -92,6 +104,7 @@ export default async function ContentPiecePage({
       brandHandle={brandHandle}
       brandFontHeading={brandFontHeading}
       brandFontBody={brandFontBody}
+      brandAvatar={brandAvatar}
       output={output}
     />
   );

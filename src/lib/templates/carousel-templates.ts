@@ -303,6 +303,63 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
     },
   },
 
+  // ─── Estilo Instagram (cases + avatar na capa/CTA) ────────────────────────
+  {
+    id: "instagram-cases",
+    title: "Instagram (Cases)",
+    description: "Capa com sua foto, cases alternando claro/escuro com fonte, e CTA com avatar. Igual aos posts do @davimoxoto.",
+    slideCount: 7,
+    badge: "Com avatar",
+    defaultFont: "serif" as FontKey,
+    build(topic) {
+      return withFont([
+        {
+          index: 0,
+          title: `Enquanto você debate, *${topic.toUpperCase()}* já virou número`,
+          subtitle: "O recorte que importa",
+          body: "O gancho que força o swipe — uma linha de tensão.\n[Layout: editorial]",
+        },
+        {
+          index: 1,
+          title: "O caso que prova o ponto",
+          subtitle: "CASE 01",
+          body: "Conte um exemplo concreto com **um número que impressiona**. Quem fez, o que mudou.\n[quote: Resultado | Escreva aqui o dado de impacto]\n[Layout: dark]",
+        },
+        {
+          index: 2,
+          title: "Não foi sorte — foi método",
+          subtitle: "CASE 02",
+          body: "Segundo exemplo, reforçando o padrão. Seja específico no antes/depois.\n[Layout: light]",
+        },
+        {
+          index: 3,
+          title: "E no pequeno negócio?",
+          subtitle: "NA PRÁTICA",
+          body: "Mostre que funciona em qualquer escala.\n[chips: caso 1 | caso 2 | caso 3]\n[Layout: dark]",
+        },
+        {
+          index: 4,
+          title: "O padrão por trás de todos",
+          subtitle: "O INSIGHT",
+          body: "A lógica comum que conecta os casos — o aprendizado central.\n[Layout: light]",
+        },
+        {
+          index: 5,
+          title: "Como dar o primeiro passo",
+          subtitle: "A AÇÃO",
+          body: "O passo imediato e concreto pro leitor aplicar hoje. **Sem teoria.**\n[Layout: dark]",
+        },
+        {
+          index: 6,
+          title: "Qual a tarefa mais cara do seu negócio hoje?",
+          subtitle: "SUA VEZ",
+          body: "Não a mais glamourosa. A que mais rouba tempo. Me conta nos comentários.\n[Layout: gradient]",
+          cta: "Seguir para mais",
+        },
+      ], this.defaultFont);
+    },
+  },
+
   // ─── Carrossel com imagem (card-top) ──────────────────────────────────────
   {
     id: "image-cards",

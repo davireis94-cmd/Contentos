@@ -115,6 +115,23 @@ function bodyFit(text: string): { scale: number; clamp: number } {
 }
 
 /**
+ * Estilo de fundo do avatar (foto de perfil) num recorte circular. MESMA fórmula
+ * do ajuste em avatar-upload.tsx → o que o Davi enquadra lá sai igual no slide.
+ * No export, roteia pelo proxy same-origin (html-to-image não taint).
+ */
+function avatarBgStyle(avatar: BrandAvatar, forExport?: boolean): CSSProperties {
+  const url = forExport
+    ? `/api/img-proxy?url=${encodeURIComponent(avatar.url)}`
+    : avatar.url;
+  return {
+    backgroundImage: `url("${url}")`,
+    backgroundSize: `${Math.round((avatar.zoom ?? 1) * 100)}%`,
+    backgroundPosition: `${avatar.x ?? 50}% ${avatar.y ?? 50}%`,
+    backgroundRepeat: "no-repeat",
+  };
+}
+
+/**
  * Estilo visual da palavra-chave destacada (*asteriscos*) conforme a escolha do
  * usuário no painel Estilo. Mesma renderização na tela e no PNG (fonte única).
  * Default = sublinhado (parecido com o comportamento antigo).
@@ -295,6 +312,7 @@ function SortableThumbnail({
   isCurrent,
   B,
   headingFont,
+  avatar,
   onClick,
 }: {
   slide: Slide;
@@ -303,6 +321,7 @@ function SortableThumbnail({
   isCurrent: boolean;
   B: BrandTokens;
   headingFont: string;
+  avatar?: BrandAvatar | null;
   onClick: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -337,7 +356,7 @@ function SortableThumbnail({
             left: 0,
           }}
         >
-          <SlideVisual slide={slide} idx={idx} total={total} B={B} headingFont={headingFont} />
+          <SlideVisual slide={slide} idx={idx} total={total} B={B} headingFont={headingFont} avatar={avatar} />
         </div>
       </button>
     </div>
@@ -408,6 +427,7 @@ function SlideVisual({
   B,
   headingFont,
   forExport,
+  avatar,
 }: {
   slide: Slide;
   idx: number;
@@ -416,6 +436,7 @@ function SlideVisual({
   headingFont: string;
   /** No export PNG, roteia a imagem pelo proxy same-origin (evita CORS no html2canvas) */
   forExport?: boolean;
+  avatar?: BrandAvatar | null;
 }) {
   const handle = B.handle;
   const body = slide.body ?? "";
@@ -686,6 +707,25 @@ function SlideVisual({
           />
         )}
         <div style={{ position: "relative", zIndex: 2, padding: "0 16px 34px" }}>
+          {avatar && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+              <div
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: "50%",
+                  border: "1px solid rgba(255,255,255,0.35)",
+                  flexShrink: 0,
+                  ...avatarBgStyle(avatar, forExport),
+                }}
+              />
+              {handle && (
+                <span style={{ fontSize: 7.5, fontWeight: 600, color: "rgba(255,255,255,0.7)", letterSpacing: 0.3 }}>
+                  {handle}
+                </span>
+              )}
+            </div>
+          )}
           {slide.subtitle && (
             <div style={{ fontSize: 7, fontStyle: "italic", color: "rgba(255,255,255,0.75)", marginBottom: 5, fontFamily: "Georgia,serif" }}>
               {slide.subtitle}
@@ -923,12 +963,13 @@ function SlideVisual({
         <div style={{ textAlign: "center", padding: "0 20px", position: "relative", zIndex: 2 }}>
           <div
             style={{
-              width: 36,
-              height: 36,
+              width: 44,
+              height: 44,
               borderRadius: "50%",
               background: "rgba(255,255,255,0.15)",
-              border: "1px solid rgba(255,255,255,0.3)",
+              border: "1px solid rgba(255,255,255,0.4)",
               margin: "0 auto 8px",
+              ...(avatar ? avatarBgStyle(avatar, forExport) : {}),
             }}
           />
           {handle && (
@@ -1232,6 +1273,13 @@ function SlideVisual({
 
 // ── Main Component ─────────────────────────────────────────────────────────
 
+interface BrandAvatar {
+  url: string;
+  zoom: number;
+  x: number;
+  y: number;
+}
+
 interface Props {
   slides: Slide[];
   pieceId: string;
@@ -1240,9 +1288,10 @@ interface Props {
   brandHandle?: string | null;
   brandFontHeading?: string | null;
   brandFontBody?: string | null;
+  brandAvatar?: BrandAvatar | null;
 }
 
-export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, brandHandle, brandFontHeading }: Props) {
+export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, brandHandle, brandFontHeading, brandAvatar }: Props) {
   const B = deriveBrandTokens(brandColors, brandHandle);
   const [current, setCurrent] = useState(0);
   const [editing, setEditing] = useState(false);
@@ -1839,7 +1888,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
                 left: 0,
               }}
             >
-              <SlideVisual slide={currentSlide} idx={current} total={slides.length} B={B} headingFont={resolveFontFamily(getFontKey(currentSlide.body), brandFontHeading)} />
+              <SlideVisual slide={currentSlide} idx={current} total={slides.length} B={B} headingFont={resolveFontFamily(getFontKey(currentSlide.body), brandFontHeading)} avatar={brandAvatar} />
             </div>
           </div>
 
@@ -1914,6 +1963,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
                     isCurrent={i === current}
                     B={B}
                     headingFont={resolveFontFamily(getFontKey(s.body), brandFontHeading)}
+                    avatar={brandAvatar}
                     onClick={() => goTo(i)}
                   />
                 ))}
@@ -2544,6 +2594,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
               total={slides.length}
               B={B}
               headingFont={resolveFontFamily(getFontKey(s.body), brandFontHeading)}
+              avatar={brandAvatar}
               forExport
             />
           </div>

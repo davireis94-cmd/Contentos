@@ -74,6 +74,7 @@ interface Props {
   brandHandle?: string | null;
   brandFontHeading?: string | null;
   brandFontBody?: string | null;
+  brandAvatar?: { url: string; zoom: number; x: number; y: number } | null;
   output: GenerationOutput;
 }
 
@@ -216,6 +217,7 @@ export function ContentDetail({
   brandHandle,
   brandFontHeading,
   brandFontBody,
+  brandAvatar,
   output,
 }: Props) {
   const [status, setStatus] = useState<ContentStatus>(initialStatus);
@@ -546,6 +548,7 @@ export function ContentDetail({
               brandHandle={brandHandle}
               brandFontHeading={brandFontHeading}
               brandFontBody={brandFontBody}
+              brandAvatar={brandAvatar}
               onSlidesChange={(next) => setSlides(next)}
             />
           </TabsContent>

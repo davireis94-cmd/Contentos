@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ColorPaletteInput } from "@/components/brand/color-palette-input";
 import { LogoUpload } from "@/components/brand/logo-upload";
+import { AvatarUpload } from "@/components/brand/avatar-upload";
 import { updateIdentity } from "../../actions";
 
 interface IdentityTabProps {
@@ -19,6 +20,10 @@ interface IdentityTabProps {
       colors?: string[];
       font_heading?: string | null;
       font_body?: string | null;
+      avatar_url?: string | null;
+      avatar_zoom?: number | null;
+      avatar_x?: number | null;
+      avatar_y?: number | null;
     } | null;
   };
 }
@@ -35,6 +40,18 @@ export function IdentityTab({ brand, workspaceId }: IdentityTabProps) {
             workspaceId={workspaceId}
             brandId={brand.id}
             currentUrl={brand.logo_url}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Foto de perfil (avatar dos carrosséis)</Label>
+          <AvatarUpload
+            workspaceId={workspaceId}
+            brandId={brand.id}
+            currentUrl={identity.avatar_url ?? null}
+            currentZoom={identity.avatar_zoom ?? null}
+            currentX={identity.avatar_x ?? null}
+            currentY={identity.avatar_y ?? null}
           />
         </div>
 
