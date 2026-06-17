@@ -355,17 +355,24 @@ function SlideVisual({
   total,
   B,
   headingFont,
+  forExport,
 }: {
   slide: Slide;
   idx: number;
   total: number;
   B: BrandTokens;
   headingFont: string;
+  /** No export PNG, roteia a imagem pelo proxy same-origin (evita CORS no html2canvas) */
+  forExport?: boolean;
 }) {
   const handle = B.handle;
   const body = slide.body ?? "";
   const layout = getLayout(body);
   const text = cleanBody(body);
+  // Na exportação, a imagem vai pelo proxy same-origin p/ o canvas não ficar "tainted".
+  const imgSrc = slide.imageUrl
+    ? (forExport ? `/api/img-proxy?url=${encodeURIComponent(slide.imageUrl)}` : slide.imageUrl)
+    : undefined;
   // Anton/Impact é visualmente ~25% maior que Georgia no mesmo px — compensamos
   const fontScale = /anton|Impact/i.test(headingFont) ? 0.80 : 1.0;
   // Encolhe título longo p/ caber na caixa (some o "comendo as letras")
@@ -498,7 +505,7 @@ function SlideVisual({
         >
           {slide.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={slide.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <img src={imgSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           ) : (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, color: "rgba(0,0,0,0.35)" }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -594,7 +601,7 @@ function SlideVisual({
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={slide.imageUrl}
+              src={imgSrc}
               alt=""
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
             />
@@ -676,7 +683,7 @@ function SlideVisual({
         <TopBar themeId={themeId} isDark={!isLight} handle={handle} idx={idx} total={total} />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={slide.imageUrl}
+          src={imgSrc}
           alt=""
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
         />
@@ -2300,6 +2307,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
               total={slides.length}
               B={B}
               headingFont={resolveFontFamily(getFontKey(s.body), brandFontHeading)}
+              forExport
             />
           </div>
         ))}
