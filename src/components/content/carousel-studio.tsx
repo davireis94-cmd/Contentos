@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef, useEffect } from "react";
+import { useState, useTransition, useRef, useEffect, type CSSProperties } from "react";
 import { toPng } from "html-to-image";
 import {
   DndContext,
@@ -59,13 +59,17 @@ import {
 import {
   CAROUSEL_THEMES,
   FONT_OPTIONS,
+  HIGHLIGHT_OPTIONS,
   getThemeId,
   getFontKey,
+  getHighlightKey,
   setThemeToken,
   setFontToken,
+  setHighlightToken,
   resolveFontFamily,
   type ThemeId,
   type FontKey,
+  type HighlightKey,
 } from "@/lib/render/carousel-themes";
 
 // Base do preview: 216×270 (4:5), escalada por transform. Mesma proporção do PNG.
@@ -108,6 +112,40 @@ function bodyFit(text: string): { scale: number; clamp: number } {
   if (len <= 200) return { scale: 0.9, clamp: 6 };
   if (len <= 300) return { scale: 0.8, clamp: 8 };
   return { scale: 0.72, clamp: 11 };
+}
+
+/**
+ * Estilo visual da palavra-chave destacada (*asteriscos*) conforme a escolha do
+ * usuário no painel Estilo. Mesma renderização na tela e no PNG (fonte única).
+ * Default = sublinhado (parecido com o comportamento antigo).
+ */
+function highlightStyle(key: HighlightKey, B: BrandTokens, isDark: boolean): CSSProperties {
+  const accent = isDark ? B.vivid : B.primary;
+  switch (key) {
+    case "box":
+      return {
+        background: B.primary,
+        color: "#fff",
+        padding: "0.04em 0.22em",
+        borderRadius: 4,
+        WebkitBoxDecorationBreak: "clone",
+        boxDecorationBreak: "clone",
+      };
+    case "marker":
+      return {
+        color: isDark ? "#fff" : "#1A1310",
+        background: `color-mix(in srgb, ${accent} 42%, transparent)`,
+        padding: "0 0.12em",
+        borderRadius: 2,
+        WebkitBoxDecorationBreak: "clone",
+        boxDecorationBreak: "clone",
+      };
+    case "color":
+      return { color: accent, fontWeight: 800 };
+    case "underline":
+    default:
+      return { color: accent, borderBottom: `3px solid ${accent}`, paddingBottom: 1 };
+  }
 }
 
 function parseFeatures(body: string) {
@@ -396,6 +434,8 @@ function SlideVisual({
   const brandTitleStyle = isBrandFont
     ? { textTransform: "uppercase" as const, letterSpacing: "0.02em", fontWeight: 800 as const }
     : {};
+  // Estilo do destaque da palavra-chave (*asteriscos*); default sublinhado.
+  const hlKey: HighlightKey = getHighlightKey(body) ?? "underline";
   // Encolhe título longo p/ caber na caixa (some o "comendo as letras")
   const tFit = titleFit(slide.title);
   const bFit = bodyFit(text);
@@ -660,9 +700,9 @@ function SlideVisual({
                   lineHeight: 1.0,
                   textTransform: "uppercase",
                   fontFamily: headingFont,
-                  color: s.hl ? B.vivid : "#fff",
-                  borderBottom: s.hl ? `2px solid ${B.vivid}` : "none",
+                  color: "#fff",
                   ...brandTitleStyle,
+                  ...(s.hl ? highlightStyle(hlKey, B, true) : {}),
                 }}
               >
                 {s.text}
@@ -736,8 +776,9 @@ function SlideVisual({
                   fontWeight: 700,
                   lineHeight: 1.12,
                   fontFamily: headingFont,
-                  color: s.hl ? (isLight ? B.primary : B.vivid) : (isGradient ? "#fff" : titleColor),
+                  color: isGradient ? "#fff" : titleColor,
                   ...brandTitleStyle,
+                  ...(s.hl ? highlightStyle(hlKey, B, !isLight) : {}),
                 }}
               >
                 {s.text}
@@ -1546,6 +1587,11 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
     persist(next);
   }
 
+  function applyHighlight(key: HighlightKey) {
+    const next = slides.map((s) => ({ ...s, body: setHighlightToken(s.body ?? "", key) }));
+    persist(next);
+  }
+
   function applyTheme(themeId: ThemeId) {
     const def = CAROUSEL_THEMES.find((t) => t.id === themeId)!;
     const next = slides.map((s, i) => {
@@ -1965,6 +2011,36 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
                       style={{ fontFamily: f.key === "brand" && brandFontHeading ? `"${brandFontHeading}", sans-serif` : f.preview }}
                     >
                       {f.label}{f.key === "brand" && brandFontHeading ? ` (${brandFontHeading})` : ""}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Destaque da palavra-chave (*asteriscos*) */}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">
+                Destaque da palavra
+              </p>
+              <p className="text-[10px] text-muted-foreground/60 mb-2">
+                Marque a palavra com *asteriscos* no texto. Aplica em todos os slides.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {HIGHLIGHT_OPTIONS.map((h) => {
+                  const activeHl = getHighlightKey(currentSlide.body ?? "");
+                  const isActive = activeHl === h.key || (activeHl === null && h.key === "underline");
+                  return (
+                    <button
+                      key={h.key}
+                      onClick={() => applyHighlight(h.key)}
+                      title={h.hint}
+                      className={`px-2.5 py-1.5 rounded-md text-[11px] border transition-colors ${
+                        isActive
+                          ? "border-primary bg-primary/5 text-primary font-semibold"
+                          : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                      }`}
+                    >
+                      {h.label}
                     </button>
                   );
                 })}

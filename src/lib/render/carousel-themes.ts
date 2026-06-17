@@ -85,6 +85,34 @@ export function resolveFontFamily(key: FontKey | null, brandFont?: string | null
   return "Georgia, serif"; // serif + null → serif
 }
 
+// ── Estilo do destaque da palavra-chave (*asteriscos*) ───────────────────────
+
+export type HighlightKey = "box" | "marker" | "color" | "underline";
+
+export interface HighlightOption {
+  key: HighlightKey;
+  label: string;
+  hint: string;
+}
+
+export const HIGHLIGHT_OPTIONS: HighlightOption[] = [
+  { key: "box",       label: "Caixa sólida", hint: "bloco na cor da marca" },
+  { key: "marker",    label: "Grifo",        hint: "marca-texto atrás" },
+  { key: "color",     label: "Cor forte",    hint: "só a palavra colorida" },
+  { key: "underline", label: "Sublinhado",   hint: "linha grossa embaixo" },
+];
+
+export function getHighlightKey(body: string | null | undefined): HighlightKey | null {
+  const m = (body ?? "").match(/\[HL:\s*([a-z]+)\]/i);
+  const k = m?.[1] as HighlightKey | undefined;
+  return HIGHLIGHT_OPTIONS.some((h) => h.key === k) ? k! : null;
+}
+
+export function setHighlightToken(body: string, key: HighlightKey): string {
+  const cleaned = (body ?? "").replace(/\n?\[HL:\s*[a-z]+\]/gi, "").trimEnd();
+  return `${cleaned}\n[HL: ${key}]`;
+}
+
 export function getThemeId(body: string | null | undefined): ThemeId | null {
   const m = (body ?? "").match(/\[Theme:\s*([a-z-]+)\]/i);
   const id = m?.[1] as ThemeId | undefined;
