@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useRef } from "react";
-import html2canvas from "html2canvas";
+import { toPng } from "html-to-image";
 import {
   DndContext,
   closestCenter,
@@ -94,6 +94,19 @@ function titleFit(title: string): number {
   if (len <= 44) return 0.77;
   if (len <= 60) return 0.67;
   return 0.58;
+}
+
+/**
+ * Igual ao titleFit, mas para o CORPO do slide: textos longos encolhem a fonte
+ * E ganham mais linhas de clamp, pra caber na mesma caixa em vez de "comer" o final.
+ * Mesma conta na tela e no PNG (fonte única).
+ */
+function bodyFit(text: string): { scale: number; clamp: number } {
+  const len = (text ?? "").replace(/[*_]/g, "").trim().length;
+  if (len <= 130) return { scale: 1, clamp: 5 };
+  if (len <= 200) return { scale: 0.9, clamp: 6 };
+  if (len <= 300) return { scale: 0.8, clamp: 8 };
+  return { scale: 0.72, clamp: 11 };
 }
 
 function parseFeatures(body: string) {
@@ -377,6 +390,7 @@ function SlideVisual({
   const fontScale = /anton|Impact/i.test(headingFont) ? 0.80 : 1.0;
   // Encolhe título longo p/ caber na caixa (some o "comendo as letras")
   const tFit = titleFit(slide.title);
+  const bFit = bodyFit(text);
   const pct = ((idx + 1) / total) * 100;
   const themeId = getThemeId(body);
   const isDark = layout === "editorial" || (layout !== "light" && layout !== "feature-list" && layout !== "step-list");
@@ -555,14 +569,14 @@ function SlideVisual({
           </div>
           {text && (
             <div style={{
-              fontSize: G.font.body,
+              fontSize: G.font.body * bFit.scale,
               color: "#5A4A44",
               lineHeight: 1.5,
               marginTop: 6,
               textAlign: G.text.align,
               display: "-webkit-box",
               WebkitBoxOrient: "vertical" as const,
-              WebkitLineClamp: 4,
+              WebkitLineClamp: bFit.clamp,
               overflow: "hidden",
             }}>
               {text}
@@ -722,12 +736,12 @@ function SlideVisual({
           </div>
           {text && !isGradient && (
             <div style={{
-              fontSize: 9,
+              fontSize: 9 * bFit.scale,
               color: bodyColor,
               lineHeight: 1.5,
               display: "-webkit-box",
               WebkitBoxOrient: "vertical" as const,
-              WebkitLineClamp: 4,
+              WebkitLineClamp: bFit.clamp,
               overflow: "hidden",
             }}>
               {text}
@@ -817,12 +831,12 @@ function SlideVisual({
           </div>
           {text && (
             <div style={{
-              fontSize: 9,
+              fontSize: 9 * bFit.scale,
               color: "rgba(255,255,255,0.55)",
               lineHeight: 1.5,
               display: "-webkit-box",
               WebkitBoxOrient: "vertical" as const,
-              WebkitLineClamp: 5,
+              WebkitLineClamp: bFit.clamp,
               overflow: "hidden",
             }}>
               {bodySegs.map((s, i) => (
@@ -956,7 +970,7 @@ function SlideVisual({
                   </div>
                 </div>
               ))
-            : <div style={{ fontSize: 9, color: "#4A3A34", lineHeight: 1.5, overflow: "hidden", maxHeight: 70 }}>{text}</div>
+            : <div style={{ fontSize: 9 * bFit.scale, color: "#4A3A34", lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitBoxOrient: "vertical" as const, WebkitLineClamp: bFit.clamp }}>{text}</div>
           }
         </div>
         {progressBar}
@@ -1012,7 +1026,7 @@ function SlideVisual({
                   </div>
                 </div>
               ))
-            : <div style={{ fontSize: 9, color: "#4A3A34", lineHeight: 1.5, overflow: "hidden", maxHeight: 70 }}>{text}</div>
+            : <div style={{ fontSize: 9 * bFit.scale, color: "#4A3A34", lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitBoxOrient: "vertical" as const, WebkitLineClamp: bFit.clamp }}>{text}</div>
           }
         </div>
         {progressBar}
@@ -1072,12 +1086,12 @@ function SlideVisual({
           </div>
           {text && (
             <div style={{
-              fontSize: 9,
+              fontSize: 9 * bFit.scale,
               color: "#4A3A34",
               lineHeight: 1.55,
               display: "-webkit-box",
               WebkitBoxOrient: "vertical" as const,
-              WebkitLineClamp: 5,
+              WebkitLineClamp: bFit.clamp,
               overflow: "hidden",
             }}>
               {bodySegs.map((s, i) => (
@@ -1140,12 +1154,12 @@ function SlideVisual({
         </div>
         {text && (
           <div style={{
-            fontSize: 9,
+            fontSize: 9 * bFit.scale,
             color: isEditorialDark ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.65)",
             lineHeight: 1.55,
             display: "-webkit-box",
             WebkitBoxOrient: "vertical" as const,
-            WebkitLineClamp: 5,
+            WebkitLineClamp: bFit.clamp,
             overflow: "hidden",
           }}>
             {bodySegs.map((s, i) => (
@@ -1365,26 +1379,21 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
         if (!node) continue;
         setExportIdx(i);
         try {
-          const canvas = await html2canvas(node, {
-            scale: SCALE,
-            useCORS: true,
-            backgroundColor: "#ffffff",
-            logging: false,
+          // html-to-image renderiza via foreignObject usando o motor do navegador,
+          // que já desenha oklch() (Tailwind v4) igual à tela. pixelRatio 5 = 1080×1350.
+          const dataUrl = await toPng(node, {
+            pixelRatio: SCALE,
             width: PREVIEW_W,
             height: PREVIEW_H,
+            backgroundColor: "#ffffff",
+            cacheBust: true,
           });
-          const blob = await new Promise<Blob | null>((resolve) =>
-            canvas.toBlob((b) => resolve(b), "image/png")
-          );
-          if (!blob) continue;
-          const url = URL.createObjectURL(blob);
           const link = document.createElement("a");
           link.download = `slide-${String(i + 1).padStart(2, "0")}.png`;
-          link.href = url;
+          link.href = dataUrl;
           document.body.appendChild(link);
           link.click();
           link.remove();
-          URL.revokeObjectURL(url);
           exported++;
           await new Promise((r) => setTimeout(r, 150));
         } catch (err) {
