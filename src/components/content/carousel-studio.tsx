@@ -23,6 +23,7 @@ import {
   Check,
   Download,
   Image,
+  Images,
   Loader2,
   Pencil,
   Plus,
@@ -1213,6 +1214,8 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
   const [libImages, setLibImages] = useState<string[]>([]);
   const [libLoading, setLibLoading] = useState(false);
   const [libOpen, setLibOpen] = useState(false);
+  // Painel lateral de imagens estilo Canva (todas geradas + enviadas, persistente).
+  const [libPanelOpen, setLibPanelOpen] = useState(false);
   // Modo de encaixe desejado para a próxima imagem gerada/enviada (quando o slide
   // ainda não tem imagem). Com imagem, o modo vem do token [Image:] do slide.
   const [desiredMode, setDesiredMode] = useState<ImageMode>("card-top");
@@ -1266,9 +1269,8 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
     startSave(() => void updateSlides(pieceId, next));
   }
 
-  async function openLibrary() {
-    setLibOpen(true);
-    if (libImages.length > 0) return;
+  async function loadLibrary(force = false) {
+    if (libImages.length > 0 && !force) return;
     setLibLoading(true);
     try {
       const res = await fetch("/api/images/library");
@@ -1279,6 +1281,28 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
     } finally {
       setLibLoading(false);
     }
+  }
+
+  function openLibrary() {
+    setLibOpen(true);
+    void loadLibrary();
+  }
+
+  function openLibPanel() {
+    setLibPanelOpen(true);
+    void loadLibrary();
+  }
+
+  /** Prepende uma imagem recém-criada à biblioteca (sem refetch), evitando duplicar. */
+  function addToLibrary(url: string) {
+    setLibImages((prev) => [url, ...prev.filter((u) => u !== url)]);
+  }
+
+  /** Aplica uma imagem da biblioteca ao slide atual, garantindo um modo de encaixe. */
+  function applyLibraryImage(url: string) {
+    applyNewImage(url, {
+      ensureModeWith: getImageMode(currentSlide.body) === "none" ? desiredMode : undefined,
+    });
   }
 
   async function handleGenerateImage() {
@@ -1300,6 +1324,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
       const data = await res.json();
       if (res.ok && data.imageUrl) {
         applyNewImage(data.imageUrl as string, { ensureModeWith: desiredMode });
+        addToLibrary(data.imageUrl as string);
       } else {
         setImgError(data.error ?? "Falha ao gerar imagem");
       }
@@ -1330,6 +1355,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
       const data = await res.json();
       if (res.ok && data.imageUrl) {
         applyNewImage(data.imageUrl as string);
+        addToLibrary(data.imageUrl as string);
       } else {
         setImgError(data.error ?? "Falha ao editar imagem");
       }
@@ -1351,6 +1377,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
       const data = await res.json();
       if (res.ok && data.imageUrl) {
         applyNewImage(data.imageUrl as string, { ensureModeWith: desiredMode });
+        addToLibrary(data.imageUrl as string);
       } else {
         setImgError(data.error ?? "Falha ao fazer upload");
       }
@@ -1633,6 +1660,14 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
             <Download className="size-3.5" />
             Baixar HTML
           </a>
+          <button
+            onClick={openLibPanel}
+            className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
+            title="Biblioteca de imagens (todas as geradas e enviadas)"
+          >
+            <Images className="size-3.5" />
+            Biblioteca
+          </button>
 
           {/* Publicar */}
           <Dialog>
@@ -2331,7 +2366,94 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
         </div>
       </div>
 
-      {/* Nós escondidos em tamanho real (216×270) — fonte única do PNG via html2canvas.
+      {/* ── Biblioteca de imagens estilo Canva (drawer lateral, persistente) ── */}
+      {libPanelOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setLibPanelOpen(false)}
+          />
+          <div className="relative h-full w-full max-w-sm bg-card border-l shadow-xl flex flex-col animate-in slide-in-from-right duration-200">
+            <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
+              <div className="flex items-center gap-2">
+                <Images className="size-4" />
+                <p className="text-sm font-semibold">Biblioteca de imagens</p>
+                {libImages.length > 0 && (
+                  <span className="text-[11px] text-muted-foreground">{libImages.length}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => void loadLibrary(true)}
+                  disabled={libLoading}
+                  className="rounded-md p-1.5 hover:bg-accent transition-colors disabled:opacity-50"
+                  title="Atualizar"
+                >
+                  <Loader2 className={`size-4 ${libLoading ? "animate-spin" : ""}`} />
+                </button>
+                <button
+                  onClick={() => setLibPanelOpen(false)}
+                  className="rounded-md p-1.5 hover:bg-accent transition-colors"
+                  title="Fechar"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="px-4 py-3 border-b shrink-0">
+              <label className="flex items-center justify-center gap-1.5 rounded-md border border-dashed px-3 py-2 text-xs font-medium cursor-pointer transition-colors hover:bg-accent">
+                {uploading ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />}
+                {uploading ? "Enviando…" : "Enviar imagem do computador"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploading}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleUploadImage(f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Clique numa imagem para aplicá-la ao <strong>slide {current + 1}</strong>.
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              {libLoading && libImages.length === 0 ? (
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-10">
+                  <Loader2 className="size-4 animate-spin" /> Carregando…
+                </div>
+              ) : libImages.length === 0 ? (
+                <div className="text-center text-xs text-muted-foreground py-10">
+                  Nenhuma imagem ainda.<br />Gere ou envie uma imagem para começar.
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {libImages.map((url, i) => (
+                    <button
+                      key={url + i}
+                      onClick={() => applyLibraryImage(url)}
+                      className="group relative rounded-lg border hover:border-primary transition-colors aspect-square overflow-hidden"
+                      title="Aplicar ao slide atual"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <span className="absolute inset-0 bg-primary/0 group-hover:bg-primary/10 transition-colors" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Nós escondidos em tamanho real (216×270) — fonte única do PNG via html-to-image.
           Renderizam o MESMO SlideVisual da tela, então o download é idêntico ao preview. */}
       <div aria-hidden style={{ position: "fixed", left: -99999, top: 0, zIndex: -1, pointerEvents: "none" }}>
         {slides.map((s, i) => (
