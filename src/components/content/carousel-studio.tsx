@@ -82,6 +82,20 @@ function cleanBody(body: string): string {
   return (body ?? "").replace(/\n?\[[^\]:]+:[^\]]*\]/gi, "").trim();
 }
 
+/**
+ * Fator de redução do título conforme o nº de caracteres, para NÃO estourar a
+ * caixa. Determinístico (mesmo resultado na tela e no PNG). Só encolhe títulos
+ * longos — títulos curtos ficam no tamanho cheio.
+ */
+function titleFit(title: string): number {
+  const len = (title ?? "").replace(/[*_]/g, "").trim().length;
+  if (len <= 22) return 1;
+  if (len <= 32) return 0.88;
+  if (len <= 44) return 0.77;
+  if (len <= 60) return 0.67;
+  return 0.58;
+}
+
 function parseFeatures(body: string) {
   return (body ?? "").split("\n").filter((l) => l.includes("|")).map((l) => {
     const [icon = "", title = "", desc = ""] = l.split("|").map((p) => p.trim());
@@ -354,6 +368,8 @@ function SlideVisual({
   const text = cleanBody(body);
   // Anton/Impact é visualmente ~25% maior que Georgia no mesmo px — compensamos
   const fontScale = /anton|Impact/i.test(headingFont) ? 0.80 : 1.0;
+  // Encolhe título longo p/ caber na caixa (some o "comendo as letras")
+  const tFit = titleFit(slide.title);
   const pct = ((idx + 1) / total) * 100;
   const themeId = getThemeId(body);
   const isDark = layout === "editorial" || (layout !== "light" && layout !== "feature-list" && layout !== "step-list");
@@ -611,7 +627,7 @@ function SlideVisual({
               <span
                 key={i}
                 style={{
-                  fontSize: 23 * fontScale,
+                  fontSize: 23 * fontScale * tFit,
                   lineHeight: 1.0,
                   textTransform: "uppercase",
                   fontFamily: headingFont,
@@ -686,7 +702,7 @@ function SlideVisual({
               <span
                 key={i}
                 style={{
-                  fontSize: 15 * fontScale,
+                  fontSize: 15 * fontScale * tFit,
                   fontWeight: 700,
                   lineHeight: 1.12,
                   fontFamily: headingFont,
@@ -782,7 +798,7 @@ function SlideVisual({
           {tag("rgba(255,255,255,0.5)")}
           <div
             style={{
-              fontSize: 15 * fontScale,
+              fontSize: 15 * fontScale * tFit,
               fontWeight: 700,
               color: "#fff",
               lineHeight: 1.15,
@@ -854,7 +870,7 @@ function SlideVisual({
           )}
           <div
             style={{
-              fontSize: 14 * fontScale,
+              fontSize: 14 * fontScale * tFit,
               fontWeight: 700,
               color: "#fff",
               lineHeight: 1.15,
@@ -911,7 +927,7 @@ function SlideVisual({
               {slide.subtitle}
             </div>
           )}
-          <div style={{ fontSize: 14 * fontScale, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 12, fontFamily: headingFont }}>
+          <div style={{ fontSize: 14 * fontScale * tFit, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 12, fontFamily: headingFont }}>
             {slide.title}
           </div>
           {items.length > 0
@@ -965,7 +981,7 @@ function SlideVisual({
               {slide.subtitle}
             </div>
           )}
-          <div style={{ fontSize: 14 * fontScale, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 12, fontFamily: headingFont }}>
+          <div style={{ fontSize: 14 * fontScale * tFit, fontWeight: 700, color: B.darkBg, lineHeight: 1.15, marginBottom: 12, fontFamily: headingFont }}>
             {slide.title}
           </div>
           {steps.length > 0
@@ -1036,7 +1052,7 @@ function SlideVisual({
             </div>
           )}
           <div style={{
-            fontSize: 15 * fontScale,
+            fontSize: 15 * fontScale * tFit,
             fontWeight: 700,
             color: B.darkBg,
             lineHeight: 1.15,
@@ -1104,7 +1120,7 @@ function SlideVisual({
           </div>
         )}
         <div style={{
-          fontSize: (isBoldSans ? 18 : 15) * fontScale,
+          fontSize: (isBoldSans ? 18 : 15) * fontScale * tFit,
           fontWeight: 700,
           color: "#fff",
           lineHeight: isBoldSans ? 0.95 : 1.15,
@@ -1158,6 +1174,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
   const [saving, startSave] = useTransition();
   const [exporting, setExporting] = useState(false);
   const [exportIdx, setExportIdx] = useState<number | null>(null);
+  const [exportError, setExportError] = useState("");
   const [imgModel, setImgModel] = useState(IMAGE_MODEL_DEFS[0].key);
   const [libImages, setLibImages] = useState<string[]>([]);
   const [libLoading, setLibLoading] = useState(false);
@@ -1312,49 +1329,68 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
 
   async function handleExportPng() {
     setExporting(true);
+    setExportError("");
     try {
-      // Garante que todas as imagens dos nós de export carregaram antes de capturar.
+      // Espera as imagens carregarem, mas NUNCA trava: cada uma tem timeout de 5s.
+      // (uma imagem quebrada que já está "complete" não dispara load/error de novo)
       const allImgs = exportRefs.current
         .filter(Boolean)
         .flatMap((node) => Array.from(node!.querySelectorAll("img")));
       await Promise.all(
         allImgs.map((img) =>
-          img.complete && img.naturalWidth > 0
+          img.complete
             ? Promise.resolve()
             : new Promise<void>((resolve) => {
-                img.addEventListener("load", () => resolve(), { once: true });
-                img.addEventListener("error", () => resolve(), { once: true });
+                const done = () => resolve();
+                img.addEventListener("load", done, { once: true });
+                img.addEventListener("error", done, { once: true });
+                setTimeout(done, 5000);
               })
         )
       );
 
       // PREVIEW_W=216 → escala 5 = 1080px de largura (tamanho cheio do Instagram).
       const SCALE = 1080 / PREVIEW_W;
+      let exported = 0;
 
       for (let i = 0; i < slides.length; i++) {
         const node = exportRefs.current[i];
         if (!node) continue;
         setExportIdx(i);
-        const canvas = await html2canvas(node, {
-          scale: SCALE,
-          useCORS: true,
-          backgroundColor: null,
-          logging: false,
-          width: PREVIEW_W,
-          height: PREVIEW_H,
-        });
-        const blob = await new Promise<Blob | null>((resolve) =>
-          canvas.toBlob((b) => resolve(b), "image/png")
-        );
-        if (!blob) continue;
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.download = `slide-${String(i + 1).padStart(2, "0")}.png`;
-        link.href = url;
-        link.click();
-        URL.revokeObjectURL(url);
-        await new Promise((r) => setTimeout(r, 120));
+        try {
+          const canvas = await html2canvas(node, {
+            scale: SCALE,
+            useCORS: true,
+            backgroundColor: "#ffffff",
+            logging: false,
+            width: PREVIEW_W,
+            height: PREVIEW_H,
+          });
+          const blob = await new Promise<Blob | null>((resolve) =>
+            canvas.toBlob((b) => resolve(b), "image/png")
+          );
+          if (!blob) continue;
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.download = `slide-${String(i + 1).padStart(2, "0")}.png`;
+          link.href = url;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(url);
+          exported++;
+          await new Promise((r) => setTimeout(r, 150));
+        } catch (err) {
+          console.error(`[export] slide ${i + 1} falhou:`, err);
+        }
       }
+
+      if (exported === 0) {
+        setExportError("Não consegui gerar os PNGs. Veja o console (F12) e me avise o erro.");
+      }
+    } catch (err) {
+      console.error("[export] erro geral:", err);
+      setExportError(err instanceof Error ? err.message : "Erro ao exportar.");
     } finally {
       setExportIdx(null);
       setExporting(false);
@@ -1528,6 +1564,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
             Studio · {slides.length} slides
           </p>
           {saving && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
+          {exportError && <span className="text-[11px] text-destructive">{exportError}</span>}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -2250,7 +2287,7 @@ export function CarouselStudio({ slides, pieceId, onSlidesChange, brandColors, b
 
       {/* Nós escondidos em tamanho real (216×270) — fonte única do PNG via html2canvas.
           Renderizam o MESMO SlideVisual da tela, então o download é idêntico ao preview. */}
-      <div aria-hidden style={{ position: "fixed", left: -99999, top: 0, pointerEvents: "none", opacity: 0 }}>
+      <div aria-hidden style={{ position: "fixed", left: -99999, top: 0, zIndex: -1, pointerEvents: "none" }}>
         {slides.map((s, i) => (
           <div
             key={s.index}
